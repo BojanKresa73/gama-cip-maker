@@ -1,0 +1,13 @@
+Gama United CIP Maker - interni alat za pripremu štampe (Gama United).
+
+Program uključuje sledeće komponente trećih strana:
+
+Ghostscript (Artifex Software) - GNU Affero General Public License v3 (AGPL).
+  Izvorni kod: https://ghostscript.com/releases/  i  https://github.com/ArtifexSoftware/ghostpdl
+  Napomena: ovaj program je namenjen internoj upotrebi u Gama United. Ako se program
+  distribuira drugim firmama, AGPL obaveze važe za Ghostscript (ili je potrebna komercijalna
+  licenca od Artifex-a).
+
+PyMuPDF / MuPDF (Artifex Software) - GNU AGPL v3, isto kao Ghostscript.
+NumPy - BSD licenca.  Pillow - HPND licenca.  pywebview - BSD licenca.
+Python - PSF licenca.

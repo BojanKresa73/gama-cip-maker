@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gama United · CIP Maker</title>
+<style>
+:root{
+  --navy:#0c1630; --navy-2:#13204a; --navy-3:#1c2c5c; --cyan:#2fd3e6; --blue:#1463d6; --blue-ink:#0b4fb3;
+  --bg:#f3f5f9; --card:#ffffff; --line:#e1e6ef; --line-2:#cfd6e3; --ink:#111a2e; --ink-2:#4a5672; --ink-3:#7b86a0;
+  --ok:#14874f; --ok-bg:#e5f5ec; --warn:#a15c00; --warn-bg:#fff3df; --bad:#b4232c; --bad-bg:#fde8ea; --info-bg:#e8f0fd;
+  --r:10px; --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font)}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:232px 1fr;height:100vh}
+/* sidebar */
+.side{background:var(--navy);color:#dfe6f7;display:flex;flex-direction:column;padding:22px 14px 16px;position:relative;overflow:hidden}
+.side:before{content:"";position:absolute;right:-90px;bottom:-40px;width:260px;height:360px;background:linear-gradient(160deg,rgba(47,211,230,.10),rgba(20,99,214,.18));transform:skewX(-18deg)}
+.brand{padding:0 8px 26px;position:relative}
+.brand .wm{font-size:22px;letter-spacing:.02em;color:#fff;display:flex;align-items:center;gap:0}
+.brand .wm b{font-weight:800}.brand .wm span{font-weight:300;padding-left:7px;margin-left:7px;border-left:3px solid var(--cyan)}
+.brand .sub{margin-top:8px;font-size:11px;letter-spacing:.42em;color:var(--cyan);font-weight:700}
+.nav{display:flex;flex-direction:column;gap:4px;position:relative}
+.nav button{all:unset;cursor:pointer;display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:8px;color:#c5cfe8;font-weight:500}
+.nav button:hover{background:var(--navy-2);color:#fff}
+.nav button.on{background:var(--navy-3);color:#fff;box-shadow:inset 3px 0 0 var(--cyan)}
+.nav svg{width:18px;height:18px;flex:none}
+.side .foot{margin-top:auto;position:relative;font-size:12px;color:#9eabcb;display:flex;flex-direction:column;gap:8px;padding:0 6px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+.side .foot a{color:#c5cfe8;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+/* main */
+main{overflow:auto;padding:26px 30px 40px}
+h1{font-size:22px;margin:0 0 4px;font-weight:650;letter-spacing:-.01em}
+.lead{color:var(--ink-2);margin:0 0 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--ink-2);font-weight:550}
+input[type=text],input[type=number],select,textarea{border:1px solid var(--line-2);border-radius:7px;padding:8px 10px;background:#fff;min-width:0}
+input:focus,select:focus,textarea:focus{outline:2px solid rgba(20,99,214,.25);border-color:var(--blue)}
+textarea{resize:vertical;min-height:70px}
+.btn{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:8px;font-weight:600;background:var(--blue);color:#fff;white-space:nowrap}
+.btn:hover{background:var(--blue-ink)}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line-2)}.btn.ghost:hover{background:#f6f8fc}
+.btn.danger{background:#fff;color:var(--bad);border:1px solid #f0c3c7}.btn.danger:hover{background:var(--bad-bg)}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:650;padding:2px 9px;border-radius:999px;background:#eef1f6;color:var(--ink-2);white-space:nowrap}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}.chip.warn{background:var(--warn-bg);color:var(--warn)}.chip.bad{background:var(--bad-bg);color:var(--bad)}.chip.info{background:var(--info-bg);color:var(--blue-ink)}
+.note{border-radius:8px;padding:10px 12px;font-size:13px}
+.note.warn{background:var(--warn-bg);color:#6b3e00}.note.bad{background:var(--bad-bg);color:#7d1219}.note.info{background:var(--info-bg);color:#123c7c}
+.muted{color:var(--ink-3)}.small{font-size:12.5px}.mono{font-family:var(--mono);font-size:12.5px}
+/* drop */
+.drop{border:2px dashed var(--line-2);border-radius:var(--r);padding:22px;text-align:center;background:#fafbfd;cursor:pointer;transition:.15s}
+.drop.over{border-color:var(--blue);background:var(--info-bg)}
+.drop b{color:var(--blue)}
+/* history */
+.hist{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.hist button{all:unset;cursor:pointer;display:block;padding:10px 12px;border-radius:8px;border:1px solid transparent;background:#fff}
+.hist button:hover{border-color:var(--line-2)}
+.hist button.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(20,99,214,.12)}
+.hist .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist .m{display:flex;justify-content:space-between;align-items:center;margin-top:3px;font-size:12px;color:var(--ink-3)}
+/* job */
+.jobhead{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}
+.jobhead h2{margin:0;font-size:18px;word-break:break-all}
+.spin{width:16px;height:16px;border:2px solid var(--line-2);border-top-color:var(--blue);border-radius:50%;animation:s 1s linear infinite;display:inline-block}
+@keyframes s{to{transform:rotate(360deg)}}
+.tabs{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}
+.tabs button{all:unset;cursor:pointer;padding:6px 12px;border-radius:7px;background:#fff;border:1px solid var(--line);font-weight:600;font-size:13px}
+.tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.preview{position:relative;background:repeating-conic-gradient(#eef1f6 0 25%,#fff 0 50%) 0 0/16px 16px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.preview img{display:block;width:100%;height:auto}
+.preview svg{position:absolute;inset:0;width:100%;height:100%}
+.seps{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.sep{display:grid;grid-template-columns:24px 150px 1fr 92px;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fff}
+.sep.off{opacity:.55}
+.sep input{width:18px;height:18px;accent-color:var(--blue)}
+.sep .nm{font-weight:650;display:flex;align-items:center;gap:7px;word-break:break-word}
+.sw{width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.2);flex:none}
+.sep .st{text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--ink-2)}
+.sep .st b{font-size:15px;color:var(--ink)}
+.sep img{width:120px;border:1px solid var(--line);border-radius:4px;background:#fff;display:block}
+.bars{width:100%;height:56px;display:block}
+.export{display:grid;grid-template-columns:1fr 140px auto;gap:12px;align-items:end;margin-top:16px}
+/* profiles */
+.plist{display:flex;flex-direction:column;gap:6px}
+.plist button{all:unset;cursor:pointer;padding:10px 12px;border-radius:8px;background:#fff;border:1px solid var(--line)}
+.plist button.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(20,99,214,.12)}
+.plist .t{font-weight:600}.plist .m{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+fieldset{border:1px solid var(--line);border-radius:9px;padding:14px;margin:0 0 14px}
+legend{font-weight:700;font-size:13px;padding:0 6px;color:var(--ink)}
+.fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.check{display:flex;gap:8px;align-items:center;font-size:13.5px;color:var(--ink)}
+.check input{width:17px;height:17px;accent-color:var(--blue)}
+.hint{font-size:11.5px;color:var(--ink-3);font-weight:400}
+.toast{word-break:break-word;position:fixed;right:22px;bottom:22px;background:var(--navy);color:#fff;padding:12px 16px;border-radius:9px;max-width:440px;box-shadow:0 10px 30px rgba(12,22,48,.25);display:none;z-index:9}
+.toast.bad{background:var(--bad)}
+.empty{padding:40px 20px;text-align:center;color:var(--ink-3)}
+.ruler{display:grid;font-size:10px;font-weight:650;color:var(--blue-ink);text-align:center;margin-bottom:3px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.ruler span{overflow:hidden}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--ink-3);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="wm"><b>GAMA</b><span>UNITED</span></div><div class="sub">CIP MAKER</div></div>
+    <nav class="nav">
+      <button data-view="jobs" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>Obrada</button>
+      <button data-view="profiles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Profili mašina</button>
+    </nav>
+    <div class="foot">
+      <div id="gs"><span class="dot" style="background:#7b86a0"></span>Proveravam Ghostscript…</div>
+      <div><a id="datafolder">Folder sa podacima</a></div>
+      <div id="ver" class="muted"></div>
+    </div>
+  </aside>
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast"></div>
+<input type="file" id="file" accept="application/pdf,.pdf" hidden>
+<script>
+const TOKEN = new URLSearchParams(location.search).get("t") || "";
+const $ = (s, el=document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pct = v => (v*100).toFixed(1).replace(".", ",") + " %";
+const FINISHING = /(STANC|ŠTANC|BIG|PERFORACIJA)/i;
+const VALIDATION = {reference_compared:["Upoređen sa uzorcima","info"], unverified:["Neproveren","warn"], press_verified:["Proveren na mašini","ok"]};
+const STATUS = {queued:["U redu","info"], processing:["Obrada","info"], completed:["Završeno","ok"], failed:["Greška","bad"]};
+
+async function api(method, path, body, raw){
+  const opts = {method, headers:{"X-Token":TOKEN}};
+  if (raw) opts.body = raw; else if (body !== undefined){ opts.body = JSON.stringify(body); opts.headers["Content-Type"]="application/json"; }
+  const r = await fetch(path, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ("Greška " + r.status));
+  return data;
+}
+function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast"+(bad?" bad":""); t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none", bad?7000:3500); }
+const fileUrl = (job, name) => `/api/jobs/${job}/files/${encodeURIComponent(name)}?t=${encodeURIComponent(TOKEN)}`;
+const rgbCss = rgb => `rgb(${rgb.map(v=>Math.round(v*255)).join(",")})`;
+
+const S = {view:"jobs", profiles:[], jobs:[], job:null, page:0, sel:{}, profile:null, poll:null, exportForm:{}};
+
+/* ---------------- startup ---------------- */
+async function init(){
+  document.querySelectorAll(".nav button").forEach(b => b.onclick = () => go(b.dataset.view));
+  $("#datafolder").onclick = () => window.pywebview ? window.pywebview.api.open_data_folder() : toast("Folder: " + S.dataDir);
+  try{
+    const st = await api("GET","/api/state");
+    S.dataDir = st.data_dir;
+    $("#ver").textContent = "Verzija " + st.version;
+    $("#gs").innerHTML = st.ghostscript.ok
+      ? `<span class="dot" style="background:#2bd47f"></span>Ghostscript ${esc(st.ghostscript.version)}`
+      : `<span class="dot" style="background:#ff5a64"></span>Ghostscript nije pronađen`;
+    if (!st.ghostscript.ok) toast(st.ghostscript.error, true);
+  }catch(e){ toast(e.message, true); }
+  await loadProfiles(); await loadJobs(); render();
+}
+async function loadProfiles(){ S.profiles = (await api("GET","/api/profiles")).profiles; }
+async function loadJobs(){ S.jobs = (await api("GET","/api/jobs")).jobs; }
+function go(v){ S.view=v; document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("on", b.dataset.view===v)); render(); }
+function render(){ S.view==="jobs" ? renderJobs() : renderProfiles(); }
+
+/* ---------------- jobs ---------------- */
+const outputs = p => [p.xml_enabled !== false ? "XML + PNG" : null, p.ppf_enabled ? "PPF" : null].filter(Boolean);
+function usableProfiles(){ return S.profiles.filter(p=>p.usable); }
+function renderJobs(){
+  const usable = usableProfiles();
+  const last = localStorage.getItem("cip.profile");
+  const chosen = usable.find(p=>p.id===last) ? last : (usable[0]||{}).id;
+  $("#main").innerHTML = `
+    <h1>Obrada PDF-a</h1>
+    <p class="lead">Pokrivenost boje po zonama, izračunata iz originalnog PDF-a — sa očuvanim spot pločama.</p>
+    <div class="grid2">
+      <div>
+        <div class="card">
+          <label class="f">Profil mašine
+            <select id="prof">${S.profiles.map(p=>`<option value="${esc(p.id)}" ${p.id===chosen?"selected":""} ${p.usable?"":"disabled"}>${esc(p.name)}${p.usable?"":" — nepotpun"}</option>`).join("")}</select>
+          </label>
+          <div id="profnote" class="small muted" style="margin:8px 0 12px"></div>
+          <div class="drop" id="drop">Prevucite PDF ovde<br><span class="small">ili <b>izaberite fajl</b></span></div>
+        </div>
+        <div class="hist" id="hist">${histHtml()}</div>
+      </div>
+      <div id="detail">${S.job ? "" : `<div class="card empty">Izaberite profil i PDF da biste pokrenuli obradu,<br>ili otvorite raniji posao sa leve strane.</div>`}</div>
+    </div>`;
+  const prof = $("#prof");
+  const note = () => { const p = S.profiles.find(x=>x.id===prof.value); if(!p){ $("#profnote").innerHTML = usable.length?"":`<span style="color:var(--bad)">Nijedan profil nije spreman. Dopunite ga u „Profili mašina“.</span>`; return; }
+    const [vl,vc]=VALIDATION[p.validation_status]||["",""];
+    $("#profnote").innerHTML = `${esc(p.plate_width_mm)} × ${esc(p.plate_height_mm)} mm · ${esc(p.zone_count)} zona × ${esc(String(p.zone_width_mm).replace(".",","))} mm <span class="chip ${vc}" style="margin-left:4px">${vl}</span> <span class="chip">${outputs(p).join(" + ")}</span>`; };
+  prof.onchange = () => { localStorage.setItem("cip.profile", prof.value); note(); }; note();
+  const drop = $("#drop"), file = $("#file");
+  drop.onclick = () => file.click();
+  file.onchange = () => { if (file.files[0]) upload(file.files[0]); file.value=""; };
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+  drop.ondragleave = () => drop.classList.remove("over");
+  drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); const f=e.dataTransfer.files[0]; if (f) upload(f); };
+  $("#hist").onclick = e => { const b=e.target.closest("button[data-id]"); if (b) openJob(b.dataset.id); };
+  if (S.job) renderDetail();
+}
+function histHtml(){
+  if (!S.jobs.length) return `<div class="muted small" style="padding:6px 4px">Još nema poslova.</div>`;
+  return `<div class="small muted" style="padding:6px 4px 0;font-weight:600">Raniji poslovi</div>` + S.jobs.map(j=>{
+    const [l,c]=STATUS[j.status]||[j.status,""]; const d=new Date(j.created*1000);
+    return `<button data-id="${j.id}" class="${S.job&&S.job.id===j.id?"on":""}"><div class="t" title="${esc(j.filename)}">${esc(j.filename)}</div>
+      <div class="m"><span>${d.toLocaleDateString("sr-RS")} ${d.toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit"})} · ${esc(j.profile.name.split("·")[0].trim())}</span><span class="chip ${c}">${l}</span></div></button>`; }).join("");
+}
+async function upload(f){
+  const prof = $("#prof").value;
+  if (!usableProfiles().some(p=>p.id===prof)) return toast("Izaberite spreman profil.", true);
+  if (!/\.pdf$/i.test(f.name)) return toast("Dozvoljeni su samo PDF fajlovi.", true);
+  $("#drop").innerHTML = `<span class="spin"></span><br>Učitavam ${esc(f.name)}…`;
+  try{
+    const {job} = await api("POST", `/api/jobs?profile=${encodeURIComponent(prof)}&name=${encodeURIComponent(f.name)}`, undefined, f);
+    await loadJobs(); S.job = job; S.page = 0; S.sel = {}; renderJobs(); watch();
+  }catch(e){ toast(e.message, true); renderJobs(); }
+}
+async function openJob(id){
+  try{ S.job = (await api("GET","/api/jobs/"+id)).job; S.page=0; S.sel={}; S.exportForm={}; renderJobs(); watch(); }catch(e){ toast(e.message,true); }
+}
+function watch(){
+  clearTimeout(S.poll);
+  if (!S.job || !["queued","processing"].includes(S.job.status)) return;
+  S.poll = setTimeout(async ()=>{
+    try{ const {job} = await api("GET","/api/jobs/"+S.job.id); if (S.job && job.id===S.job.id){ const changed = job.status!==S.job.status; S.job = job;
+      if (changed){ await loadJobs(); if (S.view==="jobs") renderJobs(); } else if (S.view==="jobs") renderDetail(); } }catch(e){}
+    watch();
+  }, 600);
+}
+function renderDetail(){
+  const j = S.job, el = $("#detail"); if (!el) return;
+  const [l,c] = STATUS[j.status]||[j.status,""];
+  const [vl,vc] = VALIDATION[j.profile.validation_status]||["",""];
+  let body = "";
+  if (j.status==="queued" || j.status==="processing"){
+    body = `<div class="card row"><span class="spin"></span><div><b>${esc(j.stage)}</b><div class="small muted">Puna ploča obično traje 5–20 sekundi po strani.</div></div></div>`;
+  } else if (j.status==="failed"){
+    body = `<div class="note bad" style="white-space:pre-wrap">${esc(j.error)}</div><div class="row" style="margin-top:12px"><button class="btn ghost" id="retry">Pokreni ponovo</button></div>`;
+  } else body = resultHtml(j);
+  el.innerHTML = `<div class="card">
+    <div class="jobhead"><div><h2>${esc(j.filename)}</h2>
+      <div class="small muted" style="margin-top:4px">${esc(j.profile.name)} <span class="chip ${vc}">${vl}</span></div></div>
+      <div class="row"><span class="chip ${c}">${l}</span>${["queued","processing"].includes(j.status)?"":`<button class="btn ghost" id="del" title="Obriši posao">Obriši</button>`}</div></div>
+    ${body}</div>`;
+  $("#retry") && ($("#retry").onclick = async()=>{ try{ S.job=(await api("POST",`/api/jobs/${j.id}/retry`)).job; await loadJobs(); renderJobs(); watch(); }catch(e){toast(e.message,true);} });
+  $("#del") && ($("#del").onclick = async()=>{ if(!confirm("Obrisati ovaj posao i njegove rezultate?")) return; try{ await api("DELETE","/api/jobs/"+j.id); S.job=null; await loadJobs(); renderJobs(); }catch(e){toast(e.message,true);} });
+  if (j.status==="completed") bindResult(j);
+}
+function selFor(page){
+  const k = String(page.page);
+  if (!S.sel[k]) S.sel[k] = new Set(page.channels.filter(c=>!FINISHING.test(c.name)).map(c=>c.name));
+  return S.sel[k];
+}
+function resultHtml(j){
+  const pages = j.result.pages, page = pages[S.page], p = j.result.profile, sel = selFor(page);
+  const tabs = pages.length>1 ? `<div class="tabs">${pages.map((pg,i)=>`<button data-page="${i}" class="${i===S.page?"on":""}">Strana ${pg.page}</button>`).join("")}</div>` : "";
+  const zw = 100 / p.zone_count;
+  const grid = Array.from({length:p.zone_count-1},(_,i)=>`<line x1="${(i+1)*zw}" x2="${(i+1)*zw}" y1="0" y2="100" stroke="rgba(20,99,214,.45)" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join("");
+  const zoneNo = i => p.reverse_zones ? p.zone_count - i : i + 1;
+  const ruler = `<div class="ruler" style="grid-template-columns:repeat(${p.zone_count},1fr)">${Array.from({length:p.zone_count},(_,i)=>`<span>${zoneNo(i)}</span>`).join("")}</div>`;
+  const warnings = page.warnings.map(w=>`<div class="note warn" style="margin-top:8px">${esc(w)}</div>`).join("");
+  const seps = page.channels.map(ch => {
+    const on = sel.has(ch.name);
+    const w = 100/ch.values.length;
+    const bars = ch.values.map((v,i)=>`<rect x="${i*w+w*.12}" y="${100-v*100}" width="${w*.76}" height="${Math.max(v*100,.6)}" fill="${ch.name==="Yellow"?"#e0c400":rgbCss(ch.rgb)}"><title>Zona ${i+1}: ${pct(v)}</title></rect>`).join("");
+    return `<div class="sep ${on?"":"off"}"><input type="checkbox" data-ch="${esc(ch.name)}" ${on?"checked":""} aria-label="Uključi ${esc(ch.name)}">
+      <div><div class="nm"><span class="sw" style="background:${rgbCss(ch.rgb)}"></span>${esc(ch.name)}</div>${ch.thumbnail?`<img src="${fileUrl(j.id,ch.thumbnail)}" alt="" style="margin-top:6px" loading="lazy">`:""}</div>
+      <svg class="bars" viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" x2="100" y1="100" y2="100" stroke="#cfd6e3" stroke-width=".6" vector-effect="non-scaling-stroke"/>${bars}</svg>
+      <div class="st"><b>${pct(ch.mean)}</b><br>prosek<br>max ${pct(ch.max)}</div></div>`;
+  }).join("");
+  const f = S.exportForm;
+  const jobId = f.job_id ?? (p.job_id || ""), side = f.side ?? (p.side || "Front");
+  const canExport = j.profile.export_enabled;
+  return `${tabs}
+    ${ruler}<div class="preview"><img src="${fileUrl(j.id,page.thumbnail)}" alt="Pregled ploče"><svg viewBox="0 0 100 100" preserveAspectRatio="none">${grid}</svg></div>
+    <div class="legend"><span>${p.zone_count} zona × ${String(p.zone_width_mm).replace(".",",")} mm</span><span>PDF ${page.source_mm.map(v=>v.toFixed(1).replace(".",",")).join(" × ")} mm</span><span>${esc(j.result.renderer)}, ${j.result.render_dpi} → ${j.result.coverage_dpi} dpi</span></div>
+    ${warnings}
+    <div class="seps">${seps}</div>
+    <div class="export">
+      ${p.xml_enabled !== false ? `<label class="f">Job ID<input type="text" id="xjob" maxlength="64" value="${esc(jobId)}"></label>` : `<div class="small muted" style="align-self:center">PPF dobija ime po PDF fajlu i broju strane.</div>`}
+      <label class="f">Strana<select id="xside"><option ${side==="Front"?"selected":""}>Front</option><option ${side==="Back"?"selected":""}>Back</option></select></label>
+      <button class="btn" id="xbtn" ${canExport?"":"disabled"}>Izvezi ${outputs(p).join(" + ")}</button>
+    </div>
+    ${canExport?"":`<div class="note warn" style="margin-top:10px">Izvoz nije omogućen u profilu ovog posla.</div>`}
+    <div class="small muted" style="margin-top:10px">${esc(j.result.validation)}</div>
+    <div id="xres"></div>`;
+}
+function bindResult(j){
+  const page = j.result.pages[S.page], sel = selFor(page);
+  document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{ S.page=+b.dataset.page; renderDetail(); });
+  document.querySelectorAll("[data-ch]").forEach(cb=>cb.onchange=()=>{ cb.checked?sel.add(cb.dataset.ch):sel.delete(cb.dataset.ch); cb.closest(".sep").classList.toggle("off",!cb.checked); });
+  $("#xjob") && ($("#xjob").oninput = e => S.exportForm.job_id = e.target.value);
+  $("#xside").onchange = e => S.exportForm.side = e.target.value;
+  $("#xbtn").onclick = async () => {
+    const selections = {}; for (const pg of j.result.pages) selections[String(pg.page)] = [...selFor(pg)];
+    const missing = j.result.pages.filter(pg=>!selections[String(pg.page)].length).map(pg=>pg.page);
+    if (missing.length) return toast("Izaberite bar jednu separaciju na strani: " + missing.join(", "), true);
+    const btn=$("#xbtn"); btn.disabled=true; btn.textContent="Pravim izvoz…";
+    try{
+      const r = await api("POST",`/api/jobs/${j.id}/export`,{selections, job_id:$("#xjob") ? $("#xjob").value : "", side:$("#xside").value});
+      if (window.pywebview){
+        const s = await window.pywebview.api.save_export(j.id, r.name, r.suggested);
+        if (s.path){ $("#xres").innerHTML = `<div class="note info" style="margin-top:10px">Sačuvano: <span class="mono">${esc(s.path)}</span> · <a href="#" id="showf">Prikaži u folderu</a></div>`; $("#showf").onclick=e=>{e.preventDefault(); window.pywebview.api.show_in_folder(s.path);}; }
+        else if (s.error) toast(s.error,true);
+      } else {
+        const a=document.createElement("a"); a.href=`/api/jobs/${j.id}/download/${r.name}?t=${encodeURIComponent(TOKEN)}&as=${encodeURIComponent(r.suggested)}`; a.download=r.suggested; document.body.appendChild(a); a.click(); a.remove();
+        toast("Preuzeto: " + r.suggested);
+      }
+    }catch(e){ toast(e.message,true); }
+    btn.disabled=false; btn.textContent="Izvezi " + outputs(j.result.profile).join(" + ");
+  };
+}
+
+/* ---------------- profiles ---------------- */
+const NUM = (k,label,hint,step="0.1") => ({k,label,hint,type:"num",step});
+const FIELDS = [
+  ["Osnovno",[{k:"name",label:"Naziv profila",type:"text",wide:true},{k:"printshop",label:"Štamparija",type:"text"},{k:"machine",label:"Mašina",type:"text"}]],
+  ["Ploča i zone boje",[NUM("plate_width_mm","Širina ploče (mm)"),NUM("plate_height_mm","Visina ploče (mm)"),NUM("zone_count","Broj zona","",1),NUM("zone_width_mm","Širina zone (mm)"),NUM("area_height_mm","Visina zone boje (mm)"),
+    NUM("shift_x_mm","Pomak X (mm)","+ desno od centra"),NUM("top_mm","Gornji ofset (mm)","+ naniže u zoni boje"),
+    {k:"input_mode",label:"Ulazni PDF",type:"sel",opts:[["plate","PDF je ploča (tačan format)"],["sheet","PDF je tabak (manji ili jednak)"]]},
+    {k:"vertical_anchor",label:"Vertikalno poravnanje",type:"sel",opts:[["top","Od vrha zone boje"],["bottom","Od dna zone boje"]]},NUM("bottom_mm","Donji ofset (mm)","samo za poravnanje od dna")]],
+  ["Orijentacija",[{k:"rotation",label:"Rotacija",type:"sel",num:true,opts:[[0,"0°"],[90,"90°"],[180,"180°"],[270,"270°"]]},{k:"pdf_box",label:"PDF okvir",type:"sel",opts:[["MediaBox","MediaBox"],["CropBox","CropBox"]]},
+    {k:"mirror_x",label:"Ogledalo levo-desno",type:"chk"},{k:"mirror_y",label:"Ogledalo gore-dole",type:"chk"},{k:"reverse_zones",label:"Obrnut redosled zona",type:"chk"}]],
+  ["Rezolucija",[{k:"render_dpi",label:"Radna rezolucija",type:"sel",num:true,opts:[[300,"300 dpi"],[600,"600 dpi (preporučeno)"],[1200,"1200 dpi"]]},{k:"preview_dpi",label:"PNG pregled za konzolu",type:"sel",num:true,opts:[[25,"25 dpi"],[50,"50 dpi"],[72,"72 dpi"],[75,"75 dpi"],[150,"150 dpi"]]}]],
+  ["Izlaz za mašinu",[{k:"xml_enabled",label:"XML + PNG (JDF/JMF za konzolu)",type:"chk"},{k:"ppf_enabled",label:"PPF (CIP3 2.1, kao PressPerCent)",type:"chk"},
+    {k:"ppf_dpi",label:"PPF rezolucija pregleda",type:"sel",num:true,opts:[[25.4,"25,4 dpi"],[50.8,"50,8 dpi (PressPerCent)"],[101.6,"101,6 dpi"]]},
+    {k:"ppf_sheet_lay",label:"PPF SheetLay",type:"sel",opts:[["Left","Left"],["Right","Right"]]},
+    {k:"job_id",label:"Podrazumevani Job ID",type:"text"},{k:"signature",label:"Signature",type:"text"},{k:"sheet",label:"Sheet",type:"text"},{k:"side",label:"Strana",type:"sel",opts:[["","—"],["Front","Front"],["Back","Back"]]},{k:"preview_url_prefix",label:"Preview URL prefiks",type:"text",wide:true}]],
+  ["Status",[{k:"active",label:"Aktivan (može se koristiti za obradu)",type:"chk"},{k:"export_enabled",label:"Izvoz XML-a dozvoljen",type:"chk"}]],
+];
+function renderProfiles(){
+  if (!S.profile && S.profiles.length) S.profile = structuredClone(S.profiles[0]);
+  $("#main").innerHTML = `<h1>Profili mašina</h1><p class="lead">Geometrija ploče i zona boje za svaku mašinu. Svaka izmena briše oznaku provere — profil se ponovo mora uporediti sa mašinom.</p>
+  <div class="grid2"><div><div class="plist" id="plist">${S.profiles.map(p=>{const [vl,vc]=VALIDATION[p.validation_status]||["",""];
+    return `<button data-id="${esc(p.id)}" class="${S.profile&&S.profile._orig===p.id||S.profile&&!S.profile._new&&S.profile.id===p.id?"on":""}"><div class="t">${esc(p.name)}</div><div class="m"><span class="chip ${p.usable?"ok":"bad"}">${p.usable?"Spreman":"Nepotpun"}</span><span class="chip ${vc}">${vl}</span></div></button>`;}).join("")}</div>
+    <button class="btn ghost" id="pnew" style="margin-top:10px;width:100%;justify-content:center;box-sizing:border-box">+ Novi profil</button></div>
+  <div id="pform">${S.profile?formHtml():`<div class="card empty">Nema profila.</div>`}</div></div>`;
+  $("#plist").onclick = e => { const b=e.target.closest("button[data-id]"); if(!b) return; S.profile = structuredClone(S.profiles.find(p=>p.id===b.dataset.id)); renderProfiles(); };
+  $("#pnew").onclick = () => { const base = S.profiles.find(p=>p.usable) || {}; S.profile = {...structuredClone(base), id:"", name:"", printshop:"", machine:"", notes:"", active:false, export_enabled:false, validation_status:"unverified", _new:true}; renderProfiles(); };
+  if (S.profile) bindForm();
+}
+function fieldHtml(f){
+  const v = S.profile[f.k];
+  if (f.type==="chk") return `<label class="check"><input type="checkbox" data-k="${f.k}" ${v?"checked":""}>${f.label}</label>`;
+  if (f.type==="sel") return `<label class="f">${f.label}<select data-k="${f.k}" ${f.num?'data-num="1"':""}>${f.opts.map(([o,l])=>`<option value="${o}" ${String(v??"")===String(o)?"selected":""}>${l}</option>`).join("")}</select></label>`;
+  if (f.type==="num") return `<label class="f">${f.label}<input type="number" step="${f.step}" data-k="${f.k}" data-num="1" value="${v??""}">${f.hint?`<span class="hint">${f.hint}</span>`:""}</label>`;
+  return `<label class="f" ${f.wide?'style="grid-column:1/-1"':""}>${f.label}<input type="text" data-k="${f.k}" value="${esc(v??"")}"></label>`;
+}
+function formHtml(){
+  const p = S.profile, [vl,vc]=VALIDATION[p.validation_status]||["",""];
+  return `<div class="card"><div class="jobhead"><div><h2>${esc(p.name||"Novi profil")}</h2><div class="small muted" style="margin-top:4px">${p._new?"Nov profil":`<span class="mono">${esc(p.id)}</span>`} <span class="chip ${vc}">${vl}</span></div></div>
+    <div class="row">${p._new?"":`<button class="btn ghost" id="pdup">Dupliraj</button><button class="btn danger" id="pdel">Obriši</button>`}<button class="btn" id="psave">Sačuvaj</button></div></div>
+    <div id="pcheck"></div>
+    ${FIELDS.map(([title,fs])=>`<fieldset><legend>${title}</legend><div class="fg">${fs.map(fieldHtml).join("")}</div>${title==="Ploča i zone boje"?`<div id="pdraw" style="margin-top:14px"></div>`:""}</fieldset>`).join("")}
+    <fieldset><legend>Napomene</legend><textarea data-k="notes" rows="4" style="width:100%">${esc(p.notes??"")}</textarea></fieldset></div>`;
+}
+function liveCheck(){
+  const p = S.profile, out = [];
+  const req = {machine:"Mašina",plate_width_mm:"Širina ploče",plate_height_mm:"Visina ploče",zone_count:"Broj zona",zone_width_mm:"Širina zone",area_height_mm:"Visina zone boje",shift_x_mm:"Pomak X",top_mm:"Gornji ofset",side:"Strana"};
+  if (p.xml_enabled !== false) Object.assign(req, {signature:"Signature", sheet:"Sheet"});
+  if (p.xml_enabled === false && !p.ppf_enabled) out.push("izlaz (XML ili PPF)");
+  for (const [k,l] of Object.entries(req)) if (p[k]===null||p[k]===undefined||p[k]==="") out.push(l);
+  const warn = [];
+  if (p.zone_count && p.zone_width_mm && p.plate_width_mm && p.zone_count*p.zone_width_mm > p.plate_width_mm) warn.push(`Zbir zona (${p.zone_count} × ${p.zone_width_mm} = ${+(p.zone_count*p.zone_width_mm).toFixed(2)} mm) je veći od širine ploče.`);
+  if (p.area_height_mm && p.plate_height_mm && p.area_height_mm > p.plate_height_mm) warn.push("Visina zone boje je veća od visine ploče.");
+  $("#pcheck").innerHTML = (out.length?`<div class="note warn" style="margin-bottom:14px"><b>Profil se još ne može koristiti za obradu.</b> Nedostaje: ${out.join(", ")}.</div>`:"")
+    + warn.map(w=>`<div class="note info" style="margin-bottom:14px">${esc(w)}</div>`).join("");
+  draw();
+}
+function draw(){
+  const p=S.profile, el=$("#pdraw"); if(!el) return;
+  if(!(p.plate_width_mm>0&&p.plate_height_mm>0&&p.zone_count>0&&p.zone_width_mm>0&&p.area_height_mm>0)){ el.innerHTML=""; return; }
+  const zw=p.zone_count*p.zone_width_mm, W=Math.max(zw,p.plate_width_mm), H=Math.max(p.area_height_mm,p.plate_height_mm)+20, s=520/W;
+  const px=(zw-p.plate_width_mm)/2+(p.shift_x_mm||0), py=(p.top_mm||0);
+  const zones=Array.from({length:p.zone_count},(_,i)=>`<rect x="${i*p.zone_width_mm*s}" y="0" width="${p.zone_width_mm*s}" height="${p.area_height_mm*s}" fill="${i%2?"#e8f0fd":"#f3f7fe"}" stroke="#9fb7e6" stroke-width=".6"/>`).join("");
+  el.innerHTML = `<div class="small muted" style="margin-bottom:6px">Šema (plavo = zone boje, isprekidano = PDF ploča; ako je PDF tabak, stvarni položaj zavisi od formata)</div>
+    <svg viewBox="-4 -4 ${W*s+8} ${H*s+8}" style="width:100%;max-width:560px;height:auto;display:block">${zones}
+    <rect x="${px*s}" y="${py*s}" width="${p.plate_width_mm*s}" height="${p.plate_height_mm*s}" fill="none" stroke="#111a2e" stroke-width="1.2" stroke-dasharray="5 3"/></svg>`;
+}
+function bindForm(){
+  const form=$("#pform");
+  form.querySelectorAll("[data-k]").forEach(inp=>{
+    inp.addEventListener(inp.type==="checkbox"||inp.tagName==="SELECT"?"change":"input",()=>{
+      const k=inp.dataset.k; let v = inp.type==="checkbox"?inp.checked:inp.value;
+      if (inp.dataset.num) v = v===""?null:Number(v);
+      if (k==="side" && v==="") v=null;
+      S.profile[k]=v;
+      if (k==="name") form.querySelector("h2").textContent = v || "Novi profil";
+      liveCheck();
+    });
+  });
+  liveCheck();
+  $("#psave").onclick = async()=>{
+    const p = {...S.profile}; const orig = p._new ? null : (p._orig || p.id); delete p._new; delete p._orig;
+    if (!orig) delete p.id;
+    try{ const {profile} = await api("POST","/api/profiles",{profile:p, original_id:orig}); await loadProfiles(); S.profile=structuredClone(profile);
+      toast(profile.usable?"Profil je sačuvan.":"Profil je sačuvan, ali još nije spreman za obradu."); renderProfiles(); }catch(e){ toast(e.message,true); }
+  };
+  $("#pdup") && ($("#pdup").onclick=()=>{ S.profile={...structuredClone(S.profile), id:"", name:S.profile.name+" (kopija)", validation_status:"unverified", _new:true}; renderProfiles(); });
+  $("#pdel") && ($("#pdel").onclick=async()=>{ if(!confirm(`Obrisati profil „${S.profile.name}“? Raniji poslovi ostaju sačuvani.`)) return;
+    try{ await api("DELETE","/api/profiles/"+encodeURIComponent(S.profile.id)); await loadProfiles(); S.profile=null; renderProfiles(); toast("Profil je obrisan."); }catch(e){toast(e.message,true);} });
+}
+init();
+</script>
+</body>
+</html>

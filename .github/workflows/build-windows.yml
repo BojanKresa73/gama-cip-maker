@@ -1,0 +1,81 @@
+name: Windows instaler
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Python biblioteke
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Ghostscript (ugrađuje se u program)
+        run: |
+          choco install ghostscript -y --no-progress
+          $gs = Get-ChildItem "C:\Program Files\gs" -Directory | Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $gs) { throw "Ghostscript nije instaliran" }
+          New-Item -ItemType Directory -Force ghostscript\bin | Out-Null
+          Copy-Item "$($gs.FullName)\bin\*" ghostscript\bin\ -Recurse
+          & ghostscript\bin\gswin64c.exe --version
+
+      - name: Testovi
+        run: |
+          $env:GAMA_GS = (Resolve-Path ghostscript\bin\gswin64c.exe).Path
+          $env:PYTHONPATH = "$pwd;$pwd\tests"
+          python -m unittest discover -s tests -v
+
+      - name: Pravljenje programa (PyInstaller)
+        run: |
+          pyinstaller --noconfirm --clean --windowed --name GamaCIPMaker `
+            --icon packaging\icon.ico `
+            --add-data "gama_cip_desktop\web;gama_cip_desktop\web" `
+            --add-data "gama_cip_desktop\seed_profiles;gama_cip_desktop\seed_profiles" `
+            --add-data "ghostscript;ghostscript" `
+            --collect-submodules webview `
+            --collect-data pymupdf `
+            run_gama_cip.py
+
+      - name: Samoprovera gotovog .exe programa
+        run: |
+          $report = "$pwd\selftest.txt"
+          $p = Start-Process dist\GamaCIPMaker\GamaCIPMaker.exe -ArgumentList "--selftest", "`"$report`"" -Wait -PassThru
+          Get-Content $report
+          if ($p.ExitCode -ne 0) { throw "Samoprovera nije prošla" }
+
+      - name: Instaler (Inno Setup)
+        run: |
+          choco install innosetup -y --no-progress
+          $version = (Select-String -Path gama_cip_desktop\__init__.py -Pattern '"(.+)"').Matches[0].Groups[1].Value
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" packaging\installer.iss
+          Get-ChildItem installer
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GamaCIPMaker-instaler
+          path: installer/*.exe
+          retention-days: 30
+
+      - name: Objava verzije (samo za tag v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: installer/*.exe
