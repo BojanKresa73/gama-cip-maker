@@ -128,10 +128,12 @@ def gui_test(window, report, timeout=90):
         import time
         for _ in range(120):
             try:
-                count = window.evaluate_js("document.querySelectorAll('#prof option').length")
-                api = window.evaluate_js("!!(window.pywebview && window.pywebview.api && window.pywebview.api.save_export)")
-                if count and int(count) >= 5 and api:
-                    Path(report).write_text(f"Profila u prozoru: {count}\nJS API: {api}\nGUITEST OK\n", encoding="utf-8")
+                count = window.evaluate_js("window.__cipState ? window.__cipState.profiles.length : 0")
+                api = window.evaluate_js("!!(window.pywebview && window.pywebview.api && window.pywebview.api.choose_folder)")
+                setup = window.evaluate_js("!!document.querySelector('#hotsetup')")
+                if count and int(count) >= 5 and api and setup:
+                    Path(report).write_text(f"Profila u prozoru: {count}\nJS API: {api}\nPitanje za hot foldere: {setup}\nGUITEST OK\n",
+                                            encoding="utf-8")
                     watchdog.cancel()
                     window.destroy()
                     return
