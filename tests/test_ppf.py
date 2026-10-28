@@ -69,11 +69,15 @@ class PPF(unittest.TestCase):
         self.assertEqual(list(planes)[0], "Black")
         # The 100 mm test drawing sits at the bottom-left of the PDF page. Rows are stored
         # bottom-up, so it must appear in the FIRST rows of the file, not the last.
+        # Ink-centred like PressPerCent: the 100 mm (200 row) drawing sits in the middle rows.
         black = planes["Black"]
-        self.assertLess(black[:150, 10:90].mean(), 30)
-        self.assertGreater(black[-150:, :].mean(), 250)
+        rows = np.where((black < 250).any(axis=1))[0]
+        self.assertAlmostEqual((rows[0] + rows[-1]) / 2, (black.shape[0] - 1) / 2, delta=2)
+        self.assertAlmostEqual(rows[-1] - rows[0] + 1, 200, delta=2)
+        mid = black.shape[0] // 2
+        self.assertLess(black[mid - 50:mid + 50, 10:90].mean(), 30)
         spot = planes["PANTONE 7466C"]
-        self.assertAlmostEqual(spot[20:180, 110:180].mean(), 127.5, delta=6)
+        self.assertAlmostEqual(spot[mid - 50:mid + 50, 110:180].mean(), 127.5, delta=6)
 
 
 if __name__ == "__main__":

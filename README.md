@@ -9,7 +9,7 @@ i pravi fajlove za mašinu. Radi potpuno lokalno, bez interneta i bez naloga.
   uključujući imena sa slovima Š, Č, Ć, Ž, Đ.
 - Prikazuje pregled ploče sa mrežom zona, sličice separacija i grafik pokrivenosti po zonama.
 - Separacije dorade (ŠTANC, BIG, PERFORACIJA) su automatski isključene iz izvoza.
-- Izlazi, po profilu mašine:
+- Izlazi, po profilu mašine (PPF proveren na 6 PressPerCent fajlova, vidi `tools/compare_ppf.py`):
   - **XML + PNG** (JDF/JMF, DI-Plot dijalekt) — npr. Birograf.
   - **PPF** (CIP3 2.1, isti raspored kao PressPerCent) — npr. Eurodream.
 - Profili mašina se uređuju u programu. Svaka izmena geometrije briše oznaku provere.

@@ -42,7 +42,7 @@ def validate(p):
         raise ValueError("Radna rezolucija mora biti 300, 600 ili 1200 dpi.")
     if type(p.get("preview_dpi")) is not int or p["preview_dpi"] not in (25, 50, 72, 75, 150):
         raise ValueError("PNG rezolucija mora biti 25, 50, 72, 75 ili 150 dpi.")
-    if p["input_mode"] not in ("plate", "sheet") or p["vertical_anchor"] not in ("top", "bottom"):
+    if p["input_mode"] not in ("plate", "sheet") or p["vertical_anchor"] not in ("top", "bottom", "ink_center"):
         raise ValueError("Neispravan režim ulaznog formata ili vertikalnog poravnanja.")
     if p.get("pdf_box") not in ("MediaBox", "CropBox"):
         raise ValueError("PDF okvir mora biti MediaBox ili CropBox.")

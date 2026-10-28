@@ -322,7 +322,7 @@ const FIELDS = [
   ["Ploča i zone boje",[NUM("plate_width_mm","Širina ploče (mm)"),NUM("plate_height_mm","Visina ploče (mm)"),NUM("zone_count","Broj zona","",1),NUM("zone_width_mm","Širina zone (mm)"),NUM("area_height_mm","Visina zone boje (mm)"),
     NUM("shift_x_mm","Pomak X (mm)","+ desno od centra"),NUM("top_mm","Gornji ofset (mm)","+ naniže u zoni boje"),
     {k:"input_mode",label:"Ulazni PDF",type:"sel",opts:[["plate","PDF je ploča (tačan format)"],["sheet","PDF je tabak (manji ili jednak)"]]},
-    {k:"vertical_anchor",label:"Vertikalno poravnanje",type:"sel",opts:[["top","Od vrha zone boje"],["bottom","Od dna zone boje"]]},NUM("bottom_mm","Donji ofset (mm)","samo za poravnanje od dna")]],
+    {k:"vertical_anchor",label:"Vertikalno poravnanje",type:"sel",opts:[["top","Od vrha zone boje"],["bottom","Od dna zone boje"],["ink_center","Centrirana oblast sa bojom (PressPerCent)"]]},NUM("bottom_mm","Donji ofset (mm)","samo za poravnanje od dna")]],
   ["Orijentacija",[{k:"rotation",label:"Rotacija",type:"sel",num:true,opts:[[0,"0°"],[90,"90°"],[180,"180°"],[270,"270°"]]},{k:"pdf_box",label:"PDF okvir",type:"sel",opts:[["MediaBox","MediaBox"],["CropBox","CropBox"]]},
     {k:"mirror_x",label:"Ogledalo levo-desno",type:"chk"},{k:"mirror_y",label:"Ogledalo gore-dole",type:"chk"},{k:"reverse_zones",label:"Obrnut redosled zona",type:"chk"}]],
   ["Rezolucija",[{k:"render_dpi",label:"Radna rezolucija",type:"sel",num:true,opts:[[300,"300 dpi"],[600,"600 dpi (preporučeno)"],[1200,"1200 dpi"]]},{k:"preview_dpi",label:"PNG pregled za konzolu",type:"sel",num:true,opts:[[25,"25 dpi"],[50,"50 dpi"],[72,"72 dpi"],[75,"75 dpi"],[150,"150 dpi"]]}]],

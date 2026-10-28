@@ -85,7 +85,11 @@ def orient_image(image, p):
 
 def placement(mm, p):
     top = p["top_mm"]
-    if p.get("vertical_anchor", "top") == "bottom":
+    if p.get("vertical_anchor") == "ink_center":
+        # PressPerCent-style: the inked rows (ink_box_mm = [top, bottom] in page mm) are centred in the ink-zone area.
+        ink_top, ink_bottom = p["ink_box_mm"]
+        top = (p["area_height_mm"] - (ink_bottom - ink_top)) / 2 - ink_top + p.get("top_mm", 0)
+    elif p.get("vertical_anchor", "top") == "bottom":
         top = p["area_height_mm"] - mm[1] + p.get("bottom_mm", 0)
     return ((p["zone_count"] * p["zone_width_mm"] - mm[0]) / 2 + p["shift_x_mm"], top)
 
@@ -132,12 +136,19 @@ def ppf_size(p, dpi):
     return int(width * dpi / 25.4) + 1, int(p["area_height_mm"] * dpi / 25.4) + 1
 
 
-def ppf_plane(gray, mm, p, dpi, factor=3):
+# Sub-pixel grid origin, fitted to six PressPerCent PPFs (Eurodream, Oct 2026): residual offset < 0.1 px.
+PPF_ORIGIN_PX = (-0.6, 0.0)
+
+
+def ppf_plane(gray, mm, p, dpi, factor=3, origin=None):
     """Separation preview on an exact 1/dpi-inch grid (255 = no ink), area-averaged."""
+    ox, oy = PPF_ORIGIN_PX if origin is None else origin
     size = ppf_size(p, dpi)
     hi = (size[0] * factor, size[1] * factor)
     step = 25.4 / (dpi * factor)
     left, top = placement(mm, p)
+    left += ox * 25.4 / dpi
+    top += oy * 25.4 / dpi
     sx, sy = gray.width / mm[0], gray.height / mm[1]
     affine = (step * sx, 0, -left * sx, 0, step * sy, -top * sy)
     big = gray.transform(hi, Image.Transform.AFFINE, affine, resample=Image.Resampling.BILINEAR, fillcolor=255)
@@ -177,6 +188,17 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
     reported = set(colors) - set(PROCESS)
     if not reported.issubset(planes):
         raise ValueError("Imena spot boja ne odgovaraju rasterima; potrebno je proveriti specijalne znakove u imenima boja.")
+    if p.get("vertical_anchor") == "ink_center":
+        rows = None
+        for f in planes.values():
+            with Image.open(f) as im:
+                inked = orient_array(np.asarray(im) < 255, p).any(axis=1)
+            rows = inked if rows is None else rows | inked
+        if not rows.any():
+            raise ValueError("Na strani nema boje.")
+        row_mm = mm[1] / rows.size
+        first, last = int(np.argmax(rows)), rows.size - int(np.argmax(rows[::-1]))
+        p = dict(p, ink_box_mm=[first * row_mm, last * row_mm])
     channels = []
     for n, name in enumerate(sorted(planes, key=lambda x: (PROCESS.index(x) if x in PROCESS else 4, x))):
         progress("Obračun: " + name)
@@ -220,6 +242,9 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
     thumbnail = stem + ".thumb.png"
     preview.save(target / thumbnail)
     page = {"stem": stem, "source_mm": list(source_mm), "oriented_mm": list(mm), "channels": channels, "warnings": warnings, "png": png, "preview_size": size, "thumbnail": thumbnail}
+    if "ink_box_mm" in p:
+        page["ink_box_mm"] = p["ink_box_mm"]
+        page["placement_mm"] = list(placement(mm, p))
     if p.get("ppf_enabled"):
         page["ppf_dpi"] = p.get("ppf_dpi", 50.8)
         page["ppf_size"] = list(ppf_size(p, page["ppf_dpi"]))

@@ -12,7 +12,7 @@
   "shift_x_mm": 0,
   "top_mm": 0,
   "input_mode": "plate",
-  "vertical_anchor": "top",
+  "vertical_anchor": "ink_center",
   "bottom_mm": 0,
   "rotation": 0,
   "mirror_x": false,
@@ -34,5 +34,5 @@
   "active": true,
   "export_enabled": true,
   "validation_status": "reference_compared",
-  "notes": "Po PressPerCent podešavanju EuroDream8: ploča 745 × 605, štampajuća površina 747,5 × 605 centrirana, 23 zone × 32,5 mm. PPF (CIP3 2.1) sa pregledima 50,8 dpi, upoređen sa jednim PressPerCent PPF-om (zaglavlje i veličina identični; pokrivenost u okviru 0,7 poena, uzorak oštećen pri slanju). Nije provereno učitavanje u konzolu mašine."
+  "notes": "Po PressPerCent podešavanju EuroDream8: ploča 745 × 605, štampajuća površina 747,5 × 605, 23 zone × 32,5 mm. Izlaz PPF (CIP3 2.1), pregledi 50,8 dpi. Kao PressPerCent: po širini centrirana strana, po visini centrirana oblast sa bojom. Upoređeno sa 6 PressPerCent PPF-ova (glasnik p1–p4, irobot p1–p2): isto zaglavlje i veličina, preostali pomak < 0,1 piksela, prosečna razlika piksela 1,6–2,3/255, pokrivenost 0,1–0,3 poena veća kod nas. Nije provereno učitavanje u konzolu mašine."
 }
