@@ -1,10 +1,16 @@
 """Gama United CIP Maker - local desktop program."""
+import faulthandler
+import logging
 import os
 import shutil
 import subprocess
 import sys
+import threading
+import traceback
 import webbrowser
 from pathlib import Path
+
+LOG = logging.getLogger("gama.cip")
 
 
 def bundled_ghostscript():
@@ -19,21 +25,54 @@ def bundled_ghostscript():
             return
 
 
+def setup_logging():
+    """Log to %LOCALAPPDATA%\\GamaCIP\\gama-cip.log so problems on a user's PC can be diagnosed."""
+    from gama_cip_desktop.store import data_dir
+
+    path = data_dir() / "gama-cip.log"
+    try:
+        if path.exists() and path.stat().st_size > 2 * 1024 * 1024:
+            path.replace(path.with_suffix(".old.log"))
+    except OSError:
+        pass
+    handler = logging.FileHandler(path, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(threadName)s %(levelname)s %(name)s: %(message)s"))
+    root = logging.getLogger()
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
+    stream = open(path, "a", encoding="utf-8")  # noqa: SIM115 - kept open for crash dumps
+    faulthandler.enable(stream)
+    # A windowed .exe has no console: send stray output to the log instead of losing it.
+    if sys.stdout is None:
+        sys.stdout = stream
+    if sys.stderr is None:
+        sys.stderr = stream
+    sys.excepthook = lambda *exc: LOG.error("Neobrađena greška:\n%s", "".join(traceback.format_exception(*exc)))
+    threading.excepthook = lambda a: LOG.error("Greška u niti %s:\n%s", a.thread.name if a.thread else "?",
+                                               "".join(traceback.format_exception(a.exc_type, a.exc_value, a.exc_traceback)))
+    return path, stream
+
+
 class Bridge:
-    """Functions the window can call for native dialogs (window.pywebview.api.*)."""
+    """Functions the window can call for native dialogs (window.pywebview.api.*).
+
+    pywebview walks every public attribute of this object recursively to build the
+    JavaScript API. Everything that is not an API method MUST start with an underscore,
+    otherwise it would walk into the .NET window and the job queue and freeze on Windows.
+    """
 
     def __init__(self, app):
-        self.app = app
-        self.window = None
+        self._app = app
+        self._window = None
 
     def save_export(self, job_id, name, suggested):
         import webview
-        source = self.app.jobs.path(job_id) / "results" / Path(name).name
+        source = self._app.jobs.path(job_id) / "results" / Path(name).name
         if not source.is_file():
             return {"error": "Izvoz ne postoji."}
         ext = Path(name).suffix
         kind = "PPF fajl (*.PPF;*.ppf)" if ext.lower() == ".ppf" else "ZIP arhiva (*.zip)"
-        chosen = self.window.create_file_dialog(webview.SAVE_DIALOG, save_filename=suggested, file_types=(kind,))
+        chosen = self._window.create_file_dialog(webview.SAVE_DIALOG, save_filename=suggested, file_types=(kind,))
         if not chosen:
             return {"cancelled": True}
         target = chosen if isinstance(chosen, str) else chosen[0]
@@ -50,12 +89,41 @@ class Bridge:
         return True
 
     def open_data_folder(self):
-        folder = str(self.app.root)
+        folder = str(self._app.root)
         if sys.platform == "win32":
             os.startfile(folder)  # noqa: S606 - user's own data folder
         else:
             webbrowser.open(Path(folder).as_uri())
         return True
+
+
+def gui_test(window, report, timeout=90):
+    """CI check of the real window: page loads, JS runs, profiles arrive from the local server."""
+    def fail(message):
+        Path(report).write_text("GUITEST FAILED\n" + message + "\n", encoding="utf-8")
+        os._exit(2)
+
+    watchdog = threading.Timer(timeout, lambda: fail(f"Prozor nije odgovorio za {timeout} s."))
+    watchdog.daemon = True
+    watchdog.start()
+
+    def check():
+        import time
+        for _ in range(120):
+            try:
+                count = window.evaluate_js("document.querySelectorAll('#prof option').length")
+                api = window.evaluate_js("!!(window.pywebview && window.pywebview.api && window.pywebview.api.save_export)")
+                if count and int(count) >= 5 and api:
+                    Path(report).write_text(f"Profila u prozoru: {count}\nJS API: {api}\nGUITEST OK\n", encoding="utf-8")
+                    watchdog.cancel()
+                    window.destroy()
+                    return
+            except Exception as exc:  # noqa: BLE001 - retried until the watchdog fires
+                LOG.info("guitest čeka: %s", exc)
+            time.sleep(0.5)
+        fail("Profili se nisu pojavili u prozoru.")
+
+    window.events.loaded += lambda: threading.Thread(target=check, daemon=True, name="guitest").start()
 
 
 def main():
@@ -64,9 +132,13 @@ def main():
         from gama_cip_desktop.selftest import main as selftest
         target = sys.argv[sys.argv.index("--selftest") + 1] if len(sys.argv) > sys.argv.index("--selftest") + 1 else "selftest.txt"
         sys.exit(selftest(target))
+    log_path, _ = setup_logging()
+    from gama_cip_desktop import __version__
+    LOG.info("Pokretanje Gama CIP Maker %s, Python %s, %s", __version__, sys.version.split()[0], sys.platform)
     from gama_cip_desktop.server import start
 
     app, server, url = start()
+    LOG.info("Lokalni server: %s", url.split("?")[0])
     if "--browser" in sys.argv:
         print("Gama CIP Maker:", url)
         webbrowser.open(url)
@@ -78,13 +150,24 @@ def main():
     try:
         import webview
     except ImportError:
+        LOG.exception("pywebview nije dostupan, otvaram pregledač")
         webbrowser.open(url)
         server.serve_forever()
         return
     bridge = Bridge(app)
-    bridge.window = webview.create_window("Gama United · CIP Maker", url, js_api=bridge, width=1360, height=880, min_size=(1024, 680))
-    webview.start()
-    server.shutdown()
+    window = webview.create_window("Gama United · CIP Maker", url, js_api=bridge, width=1360, height=880, min_size=(1024, 680))
+    bridge._window = window
+    if "--guitest" in sys.argv:
+        gui_test(window, sys.argv[sys.argv.index("--guitest") + 1])
+    try:
+        webview.start(private_mode=False, storage_path=str(app.root / "webview"))
+    except Exception:
+        LOG.exception("Prozor programa nije mogao da se otvori; otvaram pregledač")
+        webbrowser.open(url)
+        server.serve_forever()
+    finally:
+        LOG.info("Zatvaranje programa")
+        server.shutdown()
 
 
 if __name__ == "__main__":

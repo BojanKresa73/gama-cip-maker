@@ -111,3 +111,16 @@ class Desktop(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BridgeExposure(unittest.TestCase):
+    def test_bridge_exposes_only_methods(self):
+        """pywebview walks public attributes recursively; anything non-callable here froze the program on Windows."""
+        import inspect
+        from gama_cip_desktop.main import Bridge
+
+        bridge = Bridge(object())
+        bridge._window = object()
+        public = {n: getattr(bridge, n) for n in dir(bridge) if not n.startswith("_")}
+        self.assertEqual(sorted(public), ["open_data_folder", "save_export", "show_in_folder"])
+        self.assertTrue(all(inspect.ismethod(v) for v in public.values()))

@@ -31,7 +31,11 @@ jobs:
       - name: Python biblioteke
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller
+          pip install -r requirements.txt
+          # PyInstaller with a bootloader compiled here instead of the shared prebuilt one,
+          # which antivirus programs often flag (false positives).
+          $env:PYINSTALLER_COMPILE_BOOTLOADER = "1"
+          pip install --no-binary pyinstaller "pyinstaller>=6.10"
 
       - name: Ghostscript (ugrađuje se u program)
         run: |
@@ -52,6 +56,7 @@ jobs:
         run: |
           pyinstaller --noconfirm --clean --windowed --name GamaCIPMaker `
             --icon packaging\icon.ico `
+            --version-file packaging\version_info.txt `
             --add-data "gama_cip_desktop\web;gama_cip_desktop\web" `
             --add-data "gama_cip_desktop\seed_profiles;gama_cip_desktop\seed_profiles" `
             --add-data "ghostscript;ghostscript" `
@@ -74,6 +79,18 @@ jobs:
             Write-Host "::error title=Samoprovera::Izveštaj nije napravljen (exit code $($p.ExitCode))"
           }
           if ($p.ExitCode -ne 0) { throw "Samoprovera nije prošla" }
+
+      - name: Provera pravog prozora programa
+        run: |
+          $report = "$pwd\guitest.txt"
+          $p = Start-Process dist\GamaCIPMaker\GamaCIPMaker.exe -ArgumentList "--guitest", "`"$report`"" -PassThru
+          if (-not $p.WaitForExit(150000)) { Stop-Process -Id $p.Id -Force; Write-Host "::error title=Prozor::Program se zaglavio (nije završio za 150 s)" }
+          $log = "$env:LOCALAPPDATA\GamaCIP\gama-cip.log"
+          $text = if (Test-Path $report) { Get-Content $report -Raw -Encoding utf8 } else { "Izveštaj nije napravljen" }
+          if (Test-Path $log) { $text += "`n--- gama-cip.log ---`n" + ((Get-Content $log -Encoding utf8 | Select-Object -Last 40) -join "`n") }
+          Write-Host $text
+          $msg = $text.Replace("%", "%25").Replace("`r", "").Replace("`n", "%0A")
+          if ($text -match "GUITEST OK") { Write-Host "::notice title=Prozor::$msg" } else { Write-Host "::error title=Prozor::$msg"; throw "Prozor nije prošao proveru" }
 
       - name: Instaler (Inno Setup)
         id: inst
