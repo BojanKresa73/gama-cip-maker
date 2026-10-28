@@ -61,8 +61,17 @@ jobs:
       - name: Samoprovera gotovog .exe programa
         run: |
           $report = "$pwd\selftest.txt"
+          Get-ChildItem dist\GamaCIPMaker\_internal\ghostscript\bin | Select-Object -First 5 | ForEach-Object { Write-Host $_.Name }
           $p = Start-Process dist\GamaCIPMaker\GamaCIPMaker.exe -ArgumentList "--selftest", "`"$report`"" -Wait -PassThru
-          Get-Content $report
+          Write-Host "exit code: $($p.ExitCode)"
+          if (Test-Path $report) {
+            $text = Get-Content $report -Raw -Encoding utf8
+            Write-Host $text
+            $msg = $text.Replace("%", "%25").Replace("`r", "").Replace("`n", "%0A")
+            if ($p.ExitCode -ne 0) { Write-Host "::error title=Samoprovera::$msg" } else { Write-Host "::notice title=Samoprovera::$msg" }
+          } else {
+            Write-Host "::error title=Samoprovera::Izveštaj nije napravljen (exit code $($p.ExitCode))"
+          }
           if ($p.ExitCode -ne 0) { throw "Samoprovera nije prošla" }
 
       - name: Instaler (Inno Setup)
