@@ -35,6 +35,28 @@ def ghostscript():
     raise ValueError("Ghostscript nije pronađen. Instalirajte ga ili podesite GAMA_GS na putanju gs/gswin64c.exe.")
 
 
+def gs_path(path):
+    """Path for Ghostscript's command line.
+
+    On Windows a folder like C:\\Users\\Đorđe\\... is passed as its 8.3 short form
+    (C:\\Users\\DJORDJ~1\\...), which is pure ASCII, so Serbian letters in user names,
+    folder names or file names can never reach Ghostscript's argument parsing.
+    """
+    text = str(path)
+    if os.name != "nt" or text.isascii():
+        return text
+    try:
+        import ctypes
+        size = ctypes.windll.kernel32.GetShortPathNameW(text, None, 0)
+        if size:
+            buffer = ctypes.create_unicode_buffer(size)
+            if ctypes.windll.kernel32.GetShortPathNameW(text, buffer, size) and buffer.value.isascii():
+                return buffer.value
+    except Exception:  # noqa: BLE001 - fall back to the original path
+        pass
+    return text
+
+
 def inspect_pdf(path, profile):
     with fitz.open(path) as doc:
         if not doc.is_pdf or doc.needs_pass:
@@ -265,10 +287,10 @@ def process_pdf(pdf, profile, target, progress=lambda s: None):
         number = page["page"]
         progress(f"Rasterizovanje strane {number}/{len(pages)}: {p['render_dpi']} → 150 dpi")
         with tempfile.TemporaryDirectory(prefix="gama-raster-") as work:
-            args = [gs, "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=tiffsep", f"-r{p['render_dpi']}", f"-dDownScaleFactor={p['render_dpi'] // 150}", "-dOverprint=/enable", "-dPrintSpotCMYK=true", "-dAutoRotatePages=/None", f"-dFirstPage={number}", f"-dLastPage={number}", "-sOutputFile=" + str(Path(work) / "page-%d.tif")]
+            args = [gs, "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=tiffsep", f"-r{p['render_dpi']}", f"-dDownScaleFactor={p['render_dpi'] // 150}", "-dOverprint=/enable", "-dPrintSpotCMYK=true", "-dAutoRotatePages=/None", f"-dFirstPage={number}", f"-dLastPage={number}", "-sOutputFile=" + gs_path(work) + os.sep + "page-%d.tif"]
             if p["pdf_box"] == "CropBox":
                 args += ["-dUseCropBox"]
-            args.append(str(Path(pdf).resolve()))
+            args.append(gs_path(Path(pdf).resolve()))
             run = subprocess.run(args, capture_output=True, encoding="utf-8", errors="replace", timeout=900, **NO_WINDOW)
             log = run.stdout + "\n" + run.stderr
             (output / f"page-{number:04d}.render.log").write_text(log, encoding="utf-8")

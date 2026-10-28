@@ -110,6 +110,7 @@ legend{font-weight:700;font-size:13px;padding:0 6px;color:var(--ink)}
     <div class="brand"><div class="wm"><b>GAMA</b><span>UNITED</span></div><div class="sub">CIP MAKER</div></div>
     <nav class="nav">
       <button data-view="jobs" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>Obrada</button>
+      <button data-view="hot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/><path d="M12 12v5M9.5 14.5 12 17l2.5-2.5"/></svg>Hot folderi</button>
       <button data-view="profiles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Profili mašina</button>
     </nav>
     <div class="foot">
@@ -143,7 +144,8 @@ function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="t
 const fileUrl = (job, name) => `/api/jobs/${job}/files/${encodeURIComponent(name)}?t=${encodeURIComponent(TOKEN)}`;
 const rgbCss = rgb => `rgb(${rgb.map(v=>Math.round(v*255)).join(",")})`;
 
-const S = {view:"jobs", profiles:[], jobs:[], job:null, page:0, sel:{}, profile:null, poll:null, exportForm:{}};
+const S = {view:"jobs", profiles:[], jobs:[], job:null, page:0, sel:{}, profile:null, poll:null, exportForm:{}, hot:null, hotPoll:null};
+window.__cipState = S;
 
 /* ---------------- startup ---------------- */
 async function init(){
@@ -158,12 +160,69 @@ async function init(){
       : `<span class="dot" style="background:#ff5a64"></span>Ghostscript nije pronađen`;
     if (!st.ghostscript.ok) toast(st.ghostscript.error, true);
   }catch(e){ toast(e.message, true); }
-  await loadProfiles(); await loadJobs(); render();
+  await loadProfiles(); await loadJobs(); await loadHot();
+  if (S.hot && !S.hot.root) return go("hot");   // first start: ask where the hot folders go
+  render();
 }
+async function loadHot(){ try{ S.hot = await api("GET","/api/hot"); }catch(e){ S.hot = null; } }
 async function loadProfiles(){ S.profiles = (await api("GET","/api/profiles")).profiles; }
 async function loadJobs(){ S.jobs = (await api("GET","/api/jobs")).jobs; }
 function go(v){ S.view=v; document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("on", b.dataset.view===v)); render(); }
-function render(){ S.view==="jobs" ? renderJobs() : renderProfiles(); }
+function render(){ clearTimeout(S.hotPoll); S.view==="jobs" ? renderJobs() : S.view==="hot" ? renderHot() : renderProfiles(); }
+
+/* ---------------- hot folders ---------------- */
+const hasDialogs = () => !!(window.pywebview && window.pywebview.api && window.pywebview.api.choose_folder);
+async function pickFolder(){
+  if (!hasDialogs()) return null;
+  return await window.pywebview.api.choose_folder();
+}
+async function saveRoot(root){
+  if (!root || !root.trim()) return toast("Izaberite ili upišite folder.", true);
+  try{ S.hot = await api("POST","/api/hot",{root, enabled:true}); await loadProfiles(); toast("Hot folderi su napravljeni."); renderHot(); }
+  catch(e){ toast(e.message, true); }
+}
+const openPath = p => hasDialogs() ? window.pywebview.api.open_path(p) : toast(p);
+function renderHot(){
+  const h = S.hot || {};
+  if (!h.root){
+    $("#main").innerHTML = `<h1>Hot folderi</h1><p class="lead">Ubacite PDF u folder štamparije — XML ili PPF se pojavi sam, bez otvaranja programa.</p>
+      <div class="card" id="hotsetup" style="max-width:760px">
+        <h2 style="margin:0 0 6px;font-size:18px">Gde da napravim hot foldere?</h2>
+        <p class="muted" style="margin:0 0 14px">Izaberite folder na ovom računaru, npr. <span class="mono">D:\\CIP Hot folderi</span>. U njemu će program napraviti po jedan folder za svaku štampariju (Birograf, Eurodream…), sa podfolderima <b>Ulaz</b>, <b>XML</b>/<b>PPF</b>, <b>Obradjeno</b> i <b>Greske</b>. Srpska slova u imenima foldera i fajlova su dozvoljena.</p>
+        <div class="row">
+          ${hasDialogs() ? `<button class="btn" id="hpick">Izaberi folder…</button><span class="muted small">ili upišite putanju:</span>` : ""}
+          <input type="text" id="hroot" placeholder="D:\\CIP Hot folderi" style="flex:1;min-width:260px">
+          <button class="btn ${hasDialogs()?"ghost":""}" id="hsave">Napravi hot foldere</button>
+        </div>
+        <p class="small muted" style="margin:14px 0 0">Kasnije možete da promenite folder ili da isključite hot foldere. Ova podešavanja možete preskočiti i raditi samo ručno, preko strane „Obrada“.</p>
+      </div>`;
+    $("#hpick") && ($("#hpick").onclick = async()=>{ const p = await pickFolder(); if (p){ $("#hroot").value = p; saveRoot(p); } });
+    $("#hsave").onclick = () => saveRoot($("#hroot").value);
+    return;
+  }
+  const ev = (h.events||[]).map(e=>{ const d=new Date(e.time*1000); const c = e.status==="OK"?"ok":e.status==="GREŠKA"?"bad":"info";
+    return `<div class="sep" style="grid-template-columns:120px 1fr 90px;gap:10px"><span class="small muted">${d.toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</span>
+      <div><b>${esc(e.file)}</b> <span class="small muted">· ${esc(e.printshop)}</span><div class="small muted" style="word-break:break-word">${esc(e.message)}</div></div><span class="chip ${c}" style="justify-self:end">${esc(e.status)}</span></div>`; }).join("");
+  $("#main").innerHTML = `<h1>Hot folderi</h1><p class="lead">Ubacite PDF u <b>Ulaz</b> — program pravi XML ili PPF i PDF premešta u <b>Obradjeno</b>. Ako nešto ne valja, PDF ide u <b>Greske</b> sa objašnjenjem.</p>
+    <div class="card" style="margin-bottom:16px"><div class="jobhead" style="margin:0"><div>
+      <div class="small muted">Glavni folder</div><div class="mono" style="font-size:14px;word-break:break-all">${esc(h.root)}</div>
+      <div class="small muted" style="margin-top:6px">Broj posla (Job ID) uzima se iz imena PDF-a: prvi samostalni broj od bar 4 cifre (npr. <span class="mono">…_26527_…</span>). Dnevnik svih poslova: <span class="mono">dnevnik.csv</span>.</div></div>
+      <div class="row"><label class="check"><input type="checkbox" id="hon" ${h.enabled?"checked":""}>Uključeno</label>
+        <button class="btn ghost" id="hopen">Otvori</button><button class="btn ghost" id="hchange">Promeni folder</button></div></div></div>
+    <div class="seps" style="margin:0 0 18px">${(h.folders||[]).map(f=>`<div class="sep" style="grid-template-columns:1fr auto auto;gap:14px">
+        <div><div class="nm">${esc(f.printshop)} <span class="small muted" style="font-weight:400">· ${esc(f.profile)}</span></div>
+        <div class="small muted mono" style="word-break:break-all">${esc(f.base)}</div></div>
+        <div class="small" style="text-align:right">Ulaz → <b>${esc(f.output)}</b><br><span class="${f.pending?"":"muted"}">${f.pending ? f.pending + " PDF čeka" : "prazno"}</span></div>
+        <div class="row"><button class="btn ghost" data-open="${esc(f.in)}">Ulaz</button><button class="btn ghost" data-open="${esc(f.out)}">${esc(f.output)}</button></div></div>`).join("")
+      || `<div class="note warn">Nijedan profil nije spreman za hot folder. Profil mora biti aktivan, potpun i sa dozvoljenim izvozom.</div>`}</div>
+    <h2 style="font-size:15px;margin:0 0 8px">Poslednji poslovi</h2>
+    <div class="seps" style="margin:0">${ev || `<div class="muted small">Još nema poslova iz hot foldera.</div>`}</div>`;
+  $("#hon").onchange = async e => { try{ S.hot = await api("POST","/api/hot",{enabled:e.target.checked}); renderHot(); }catch(x){ toast(x.message,true); } };
+  $("#hopen").onclick = () => openPath(h.root);
+  $("#hchange").onclick = async () => { const p = hasDialogs() ? await pickFolder() : prompt("Nova putanja glavnog foldera:", h.root); if (p) saveRoot(p); };
+  document.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openPath(b.dataset.open));
+  S.hotPoll = setTimeout(async()=>{ if (S.view!=="hot") return; await loadHot(); renderHot(); }, 3000);
+}
 
 /* ---------------- jobs ---------------- */
 const outputs = p => [p.xml_enabled !== false ? "XML + PNG" : null, p.ppf_enabled ? "PPF" : null].filter(Boolean);
@@ -207,7 +266,7 @@ function histHtml(){
   return `<div class="small muted" style="padding:6px 4px 0;font-weight:600">Raniji poslovi</div>` + S.jobs.map(j=>{
     const [l,c]=STATUS[j.status]||[j.status,""]; const d=new Date(j.created*1000);
     return `<button data-id="${j.id}" class="${S.job&&S.job.id===j.id?"on":""}"><div class="t" title="${esc(j.filename)}">${esc(j.filename)}</div>
-      <div class="m"><span>${d.toLocaleDateString("sr-RS")} ${d.toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit"})} · ${esc(j.profile.name.split("·")[0].trim())}</span><span class="chip ${c}">${l}</span></div></button>`; }).join("");
+      <div class="m"><span>${d.toLocaleDateString("sr-RS")} ${d.toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit"})} · ${esc(j.profile.name.split("·")[0].trim())}${j.hot?" · hot folder":""}</span><span class="chip ${c}">${l}</span></div></button>`; }).join("");
 }
 async function upload(f){
   const prof = $("#prof").value;
@@ -326,6 +385,7 @@ const FIELDS = [
   ["Orijentacija",[{k:"rotation",label:"Rotacija",type:"sel",num:true,opts:[[0,"0°"],[90,"90°"],[180,"180°"],[270,"270°"]]},{k:"pdf_box",label:"PDF okvir",type:"sel",opts:[["MediaBox","MediaBox"],["CropBox","CropBox"]]},
     {k:"mirror_x",label:"Ogledalo levo-desno",type:"chk"},{k:"mirror_y",label:"Ogledalo gore-dole",type:"chk"},{k:"reverse_zones",label:"Obrnut redosled zona",type:"chk"}]],
   ["Rezolucija",[{k:"render_dpi",label:"Radna rezolucija",type:"sel",num:true,opts:[[300,"300 dpi"],[600,"600 dpi (preporučeno)"],[1200,"1200 dpi"]]},{k:"preview_dpi",label:"PNG pregled za konzolu",type:"sel",num:true,opts:[[25,"25 dpi"],[50,"50 dpi"],[72,"72 dpi"],[75,"75 dpi"],[150,"150 dpi"]]}]],
+  ["Hot folder",[{k:"hot_folder",label:"Hot folder za ovaj profil",type:"chk",def:true},{k:"hot_folder_name",label:"Ime foldera (prazno = ime štamparije)",type:"text"}]],
   ["Izlaz za mašinu",[{k:"xml_enabled",label:"XML + PNG (JDF/JMF za konzolu)",type:"chk"},{k:"ppf_enabled",label:"PPF (CIP3 2.1, kao PressPerCent)",type:"chk"},
     {k:"ppf_dpi",label:"PPF rezolucija pregleda",type:"sel",num:true,opts:[[25.4,"25,4 dpi"],[50.8,"50,8 dpi (PressPerCent)"],[101.6,"101,6 dpi"]]},
     {k:"ppf_sheet_lay",label:"PPF SheetLay",type:"sel",opts:[["Left","Left"],["Right","Right"]]},
@@ -345,7 +405,7 @@ function renderProfiles(){
 }
 function fieldHtml(f){
   const v = S.profile[f.k];
-  if (f.type==="chk") return `<label class="check"><input type="checkbox" data-k="${f.k}" ${v?"checked":""}>${f.label}</label>`;
+  if (f.type==="chk") return `<label class="check"><input type="checkbox" data-k="${f.k}" ${(v ?? f.def) ? "checked" : ""}>${f.label}</label>`;
   if (f.type==="sel") return `<label class="f">${f.label}<select data-k="${f.k}" ${f.num?'data-num="1"':""}>${f.opts.map(([o,l])=>`<option value="${o}" ${String(v??"")===String(o)?"selected":""}>${l}</option>`).join("")}</select></label>`;
   if (f.type==="num") return `<label class="f">${f.label}<input type="number" step="${f.step}" data-k="${f.k}" data-num="1" value="${v??""}">${f.hint?`<span class="hint">${f.hint}</span>`:""}</label>`;
   return `<label class="f" ${f.wide?'style="grid-column:1/-1"':""}>${f.label}<input type="text" data-k="${f.k}" value="${esc(v??"")}"></label>`;

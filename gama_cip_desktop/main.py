@@ -72,7 +72,7 @@ class Bridge:
             return {"error": "Izvoz ne postoji."}
         ext = Path(name).suffix
         kind = "PPF fajl (*.PPF;*.ppf)" if ext.lower() == ".ppf" else "ZIP arhiva (*.zip)"
-        chosen = self._window.create_file_dialog(webview.SAVE_DIALOG, save_filename=suggested, file_types=(kind,))
+        chosen = self._window.create_file_dialog(webview.FileDialog.SAVE, save_filename=suggested, file_types=(kind,))
         if not chosen:
             return {"cancelled": True}
         target = chosen if isinstance(chosen, str) else chosen[0]
@@ -80,6 +80,23 @@ class Bridge:
             target += ext
         shutil.copyfile(source, target)
         return {"path": target}
+
+    def choose_folder(self):
+        import webview
+        chosen = self._window.create_file_dialog(webview.FileDialog.FOLDER)
+        if not chosen:
+            return None
+        return chosen if isinstance(chosen, str) else chosen[0]
+
+    def open_path(self, path):
+        folder = Path(path)
+        if not folder.is_dir():
+            return False
+        if sys.platform == "win32":
+            os.startfile(str(folder))  # noqa: S606 - a folder the user configured
+        else:
+            webbrowser.open(folder.as_uri())
+        return True
 
     def show_in_folder(self, path):
         if sys.platform == "win32":
@@ -126,19 +143,104 @@ def gui_test(window, report, timeout=90):
     window.events.loaded += lambda: threading.Thread(target=check, daemon=True, name="guitest").start()
 
 
+def other_instance(data_root):
+    """If the program already runs, bring its window to the front and return True."""
+    import json
+    from urllib.request import Request, urlopen
+    info = data_root / "instance.json"
+    try:
+        meta = json.loads(info.read_text(encoding="utf-8"))
+        req = Request(f"http://127.0.0.1:{int(meta['port'])}/api/show", data=b"{}", method="POST",
+                      headers={"X-Token": meta["token"], "Content-Type": "application/json"})
+        with urlopen(req, timeout=3) as response:
+            return response.status == 200
+    except Exception:  # noqa: BLE001 - no running instance
+        return False
+
+
+def remember_instance(data_root, server, app):
+    import json
+    (data_root / "instance.json").write_text(json.dumps({"port": server.server_address[1], "token": app.token, "pid": os.getpid()}),
+                                             encoding="utf-8")
+
+
+def windows_mutex():
+    """Named mutex so the installer can ask to close a running program before updating it."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        return ctypes.windll.kernel32.CreateMutexW(None, False, "GamaCIPMakerRunning")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def start_tray(app, window, state):
+    """Icon next to the clock, so hot folders keep working while the window is closed."""
+    try:
+        import pystray
+        from PIL import Image
+        from gama_cip_desktop.server import web_folder
+    except Exception:  # noqa: BLE001
+        LOG.exception("Ikonica pored sata nije dostupna")
+        return None
+
+    def show(*_):
+        window.show()
+        window.restore()
+
+    def open_root(*_):
+        root = app.hot.root
+        if root and root.is_dir():
+            os.startfile(str(root)) if sys.platform == "win32" else webbrowser.open(root.as_uri())  # noqa: S606
+
+    def quit_app(*_):
+        state["quitting"] = True
+        icon.stop()
+        window.destroy()
+
+    menu = pystray.Menu(
+        pystray.MenuItem("Otvori Gama CIP Maker", show, default=True),
+        pystray.MenuItem("Otvori hot foldere", open_root, enabled=lambda _: bool(app.hot.root)),
+        pystray.Menu.SEPARATOR,
+        pystray.MenuItem("Izlaz (zaustavlja hot foldere)", quit_app),
+    )
+    icon = pystray.Icon("GamaCIPMaker", Image.open(web_folder() / "icon.png"), "Gama CIP Maker", menu)
+    try:
+        icon.run_detached()
+    except Exception:  # noqa: BLE001
+        LOG.exception("Ikonica pored sata nije pokrenuta")
+        return None
+    LOG.info("Ikonica pored sata pokrenuta")
+    return icon
+
+
 def main():
     bundled_ghostscript()
     if "--selftest" in sys.argv:
         from gama_cip_desktop.selftest import main as selftest
         target = sys.argv[sys.argv.index("--selftest") + 1] if len(sys.argv) > sys.argv.index("--selftest") + 1 else "selftest.txt"
         sys.exit(selftest(target))
+    if "--hottest" in sys.argv:
+        from gama_cip_desktop.selftest import hot_test
+        i = sys.argv.index("--hottest")
+        setup_logging()
+        sys.exit(hot_test(sys.argv[i + 1], sys.argv[i + 2]))
     log_path, _ = setup_logging()
     from gama_cip_desktop import __version__
+    from gama_cip_desktop.store import data_dir
     LOG.info("Pokretanje Gama CIP Maker %s, Python %s, %s", __version__, sys.version.split()[0], sys.platform)
+    testing = "--guitest" in sys.argv
+    if not testing and other_instance(data_dir()):
+        LOG.info("Program već radi; prikazan je postojeći prozor")
+        return
+    mutex = windows_mutex()  # noqa: F841 - held for the lifetime of the process
     from gama_cip_desktop.server import start
 
     app, server, url = start()
     LOG.info("Lokalni server: %s", url.split("?")[0])
+    if not testing:
+        remember_instance(app.root, server, app)
     if "--browser" in sys.argv:
         print("Gama CIP Maker:", url)
         webbrowser.open(url)
@@ -155,10 +257,36 @@ def main():
         server.serve_forever()
         return
     bridge = Bridge(app)
-    window = webview.create_window("Gama United · CIP Maker", url, js_api=bridge, width=1360, height=880, min_size=(1024, 680))
+    hidden = "--minimized" in sys.argv and app.hot.enabled
+    window = webview.create_window("Gama United · CIP Maker", url, js_api=bridge, width=1360, height=880,
+                                   min_size=(1024, 680), hidden=hidden)
     bridge._window = window
-    if "--guitest" in sys.argv:
+    state = {"quitting": False, "told": False}
+    icon = None
+
+    def on_closing():
+        # Runs on the GUI thread: decide quickly, never block here.
+        if state["quitting"] or icon is None or not app.hot.enabled:
+            return True
+        threading.Thread(target=window.hide, daemon=True, name="hide").start()
+        if not state["told"]:
+            state["told"] = True
+            try:
+                icon.notify("Hot folderi i dalje rade. Program je pored sata; desni klik → Izlaz za gašenje.", "Gama CIP Maker")
+            except Exception:  # noqa: BLE001
+                pass
+        return False
+
+    def bring_to_front():
+        window.show()
+        window.restore()
+
+    app.on_show = bring_to_front
+    window.events.closing += on_closing
+    if testing:
         gui_test(window, sys.argv[sys.argv.index("--guitest") + 1])
+    else:
+        icon = start_tray(app, window, state)
     try:
         webview.start(private_mode=False, storage_path=str(app.root / "webview"))
     except Exception:
@@ -167,6 +295,14 @@ def main():
         server.serve_forever()
     finally:
         LOG.info("Zatvaranje programa")
+        if icon is not None:
+            try:
+                icon.stop()
+            except Exception:  # noqa: BLE001
+                pass
+        if not testing:
+            (app.root / "instance.json").unlink(missing_ok=True)
+        app.hot.stop.set()
         server.shutdown()
 
 

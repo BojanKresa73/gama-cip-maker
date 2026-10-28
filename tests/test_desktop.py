@@ -89,8 +89,8 @@ class Desktop(unittest.TestCase):
         status, z = self.call("GET", f"/api/jobs/{job['id']}/download/{exp['name']}")
         with zipfile.ZipFile(BytesIO(z)) as archive:
             names = archive.namelist()
-            self.assertIn("Kutija_tanc_0001.xml", names)
-            self.assertIn(b"K_99", archive.read("Kutija_tanc_0001.xml"))
+            self.assertIn("Kutija_stanc_0001.xml", names)
+            self.assertIn(b"K_99", archive.read("Kutija_stanc_0001.xml"))
 
     def test_rejects_non_pdf_and_incomplete_profile(self):
         self.assertEqual(self.call("POST", "/api/jobs?profile=birograf-rapida105-1060x795&name=x.pdf", raw=b"hello")[0], 400)
@@ -122,5 +122,5 @@ class BridgeExposure(unittest.TestCase):
         bridge = Bridge(object())
         bridge._window = object()
         public = {n: getattr(bridge, n) for n in dir(bridge) if not n.startswith("_")}
-        self.assertEqual(sorted(public), ["open_data_folder", "save_export", "show_in_folder"])
+        self.assertEqual(sorted(public), ["choose_folder", "open_data_folder", "open_path", "save_export", "show_in_folder"])
         self.assertTrue(all(inspect.ismethod(v) for v in public.values()))

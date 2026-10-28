@@ -50,3 +50,50 @@ def main(report_path):
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1] if len(sys.argv) > 1 else "selftest.txt"))
+
+
+def hot_test(root, report, timeout=300):
+    """Windows check of hot folders with Serbian Latin and Cyrillic letters in folder and file names."""
+    import shutil
+    import time
+    from .sample_pdf import build
+    from .server import App
+
+    lines = []
+    try:
+        root = Path(root)
+        app = App()
+        app.hot.configure(str(root), True)
+        folders = {f["printshop"]: Path(f["base"]) for f in app.hot.status()["folders"]}
+        src = Path(tempfile.mkdtemp(prefix="izvor-Đorđe-"))
+        build(src / "b.pdf", 1060, 795)
+        build(src / "e.pdf", 745, 605)
+        build(src / "x.pdf", 500, 400)
+        cases = [
+            (folders["Birograf"], "Kutija štanc Đorđe Čačak 26527.pdf", "b.pdf", "XML", "Kutija_stanc_Djordje_Cacak_26527_0001.xml"),
+            (folders["Eurodream"], "Каталог Ђурђевак Шабац 26520.pdf", "e.pdf", "PPF", "Katalog_Djurdjevak_Sabac_26520.p0001.PPF"),
+        ]
+        for base, name, sample, _, _ in cases:
+            shutil.copyfile(src / sample, base / "Ulaz" / name)
+        shutil.copyfile(src / "x.pdf", folders["Birograf"] / "Ulaz" / "Pogrešan format ž.pdf")
+        end = time.time() + timeout
+        def done():
+            ok = all((b / out / expected).exists() and (b / "Obradjeno" / n).exists() for b, n, _, out, expected in cases)
+            return ok and (folders["Birograf"] / "Greske" / "Pogrešan format ž.pdf.greska.txt").exists()
+        while time.time() < end and not done():
+            time.sleep(1)
+        for base, name, _, out, expected in cases:
+            lines.append(f"{'OK' if (base / out / expected).exists() else 'NEMA'} {base.name}/{out}/{expected}")
+            lines.append(f"{'OK' if (base / 'Obradjeno' / name).exists() else 'NEMA'} {base.name}/Obradjeno/{name}")
+        g = folders["Birograf"] / "Greske" / "Pogrešan format ž.pdf.greska.txt"
+        lines.append(f"{'OK' if g.exists() else 'NEMA'} Greske/{g.name}")
+        lines.append(f"dnevnik.csv: {'OK' if (root / 'dnevnik.csv').exists() else 'NEMA'}")
+        for e in app.hot.status()["events"][:6]:
+            lines.append(f"  {e['status']}: {e['file']} {e['message'][:200]}")
+        app.hot.stop.set()
+        ok = done()
+        Path(report).write_text("\n".join(lines) + ("\nHOTTEST OK\n" if ok else "\nHOTTEST FAILED\n"), encoding="utf-8")
+        return 0 if ok else 1
+    except Exception:  # noqa: BLE001
+        Path(report).write_text("\n".join(lines) + "\nHOTTEST FAILED\n" + traceback.format_exc(), encoding="utf-8")
+        return 1

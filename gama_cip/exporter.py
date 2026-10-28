@@ -5,6 +5,8 @@ import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
 
+from .names import ascii_name, latin
+
 NS = "http://www.CIP4.org/JDFSchema_1_1"
 ET.register_namespace("", NS)
 PROCESS_CMYK = {"Cyan": "1 0 0 0", "Magenta": "0 1 0 0", "Yellow": "0 0 1 0", "Black": "0 0 0 1"}
@@ -61,7 +63,7 @@ PPF_ORDER = ("Black", "Cyan", "Magenta", "Yellow")
 def ps_string(text):
     """PostScript string literal; non-ASCII as Windows-1250 octal escapes."""
     out = []
-    for byte in str(text).encode("cp1250", errors="replace"):
+    for byte in latin(text).encode("cp1250", errors="replace"):
         ch = chr(byte)
         if ch in "()\\":
             out.append("\\" + ch)
@@ -127,7 +129,8 @@ def export_zip(result, folder, selections, job_id, side, source_name):
         raise ValueError("Nedostaje izbor separacija.")
     root = Path(folder)
     profile = result["profile"]
-    base = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(source_name).stem)[:100].strip(".") or "GAMA"
+    # Press consoles get ASCII file names: Serbian Latin/Cyrillic letters are transliterated.
+    base = ascii_name(Path(source_name).stem)
     files = []
     exported_pages = []
     for page in result["pages"]:

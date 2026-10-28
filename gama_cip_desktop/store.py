@@ -174,13 +174,13 @@ class JobStore:
     def path(self, job_id):
         return self.folder / str(uuid.UUID(str(job_id)))
 
-    def create(self, filename, data, profile):
+    def create(self, filename, data, profile, hot=None):
         job_id = str(uuid.uuid4())
         folder = self.path(job_id)
         folder.mkdir(parents=True)
         (folder / "source.pdf").write_bytes(data)
         job = {"id": job_id, "filename": filename, "created": time.time(), "status": "queued", "stage": "U redu čekanja",
-               "error": None, "profile": profile, "result": None, "size": len(data)}
+               "error": None, "profile": profile, "result": None, "size": len(data), "hot": hot}
         self._write(job)
         self.prune()
         return job

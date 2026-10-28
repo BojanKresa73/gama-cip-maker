@@ -2,3 +2,4 @@ pymupdf>=1.24,<1.27  # 2.x pulls in onnxruntime/OpenCV layout analysis we do not
 numpy>=1.26
 pillow>=10.3
 pywebview>=5.1
+pystray>=0.19

@@ -21,6 +21,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from gama_cip.engine import ghostscript, process_pdf
 from gama_cip.exporter import export_zip
+from gama_cip.names import ascii_name
 
 from . import __version__
 from .store import JobStore, ProfileStore, blockers, data_dir, engine_settings
@@ -53,11 +54,14 @@ class App:
         self.jobs = JobStore(self.root)
         self.token = secrets.token_urlsafe(24)
         self.queue = queue.Queue()
+        self.on_show = None   # set by the desktop window: bring the window to the front
         self.worker = threading.Thread(target=self._work, daemon=True, name="cip-worker")
         self.worker.start()
         for job in self.jobs.all():
             if job["status"] == "queued":
                 self.queue.put(job["id"])
+        from .hotfolder import HotFolders
+        self.hot = HotFolders(self)
 
     def ghostscript_status(self):
         try:
@@ -68,7 +72,7 @@ class App:
         except Exception as exc:  # noqa: BLE001 - shown to the user
             return {"ok": False, "error": str(exc)}
 
-    def submit(self, filename, data, profile_id):
+    def submit(self, filename, data, profile_id, hot=None):
         if not re.search(r"\.pdf$", filename, re.I):
             raise ValueError("Dozvoljeni su samo PDF fajlovi.")
         if b"%PDF-" not in data[:1024]:
@@ -79,7 +83,7 @@ class App:
         problems = blockers(profile)
         if problems:
             raise ValueError("Profil nije spreman za obradu: " + "; ".join(problems))
-        job = self.jobs.create(filename, data, profile)
+        job = self.jobs.create(filename, data, profile, hot=hot)
         self.queue.put(job["id"])
         return job
 
@@ -109,6 +113,10 @@ class App:
                 if not isinstance(exc, ValueError):
                     traceback.print_exc()
                 self.jobs.update(job_id, status="failed", stage="Obrada nije uspela", error=str(exc)[:3000])
+            try:
+                self.hot.finished(self.jobs.get(job_id))
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
 
     def export(self, job_id, selections, cip_job_id, side):
         job = self.jobs.get(job_id)
@@ -122,7 +130,7 @@ class App:
         if not target.exists():
             bundle = export_zip(job["result"], results, selections, cip_job_id, side, job["filename"])
             bundle.replace(target)
-        stem = re.sub(r"[^A-Za-z0-9._-]+", "_", Path(job["filename"]).stem)[:80] or "GAMA"
+        stem = ascii_name(Path(job["filename"]).stem, limit=80)
         profile = job["result"]["profile"]
         if profile.get("ppf_enabled") and not profile.get("xml_enabled", True) and len(job["result"]["pages"]) == 1:
             # Same deliverable as PressPerCent: the .PPF file itself.
@@ -186,6 +194,16 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if method == "GET" and p == ["state"]:
                 return self.send_json({"version": __version__, "ghostscript": app.ghostscript_status(), "data_dir": str(app.root)})
+            if p == ["hot"]:
+                if method == "GET":
+                    return self.send_json(app.hot.status())
+                if method == "POST":
+                    body = json.loads(self.body() or b"{}")
+                    return self.send_json(app.hot.configure(body.get("root"), body.get("enabled")))
+            if p == ["show"] and method == "POST":
+                if app.on_show:
+                    app.on_show()
+                return self.send_json({"ok": True})
             if p == ["profiles"]:
                 if method == "GET":
                     return self.send_json({"profiles": app.profiles.all()})

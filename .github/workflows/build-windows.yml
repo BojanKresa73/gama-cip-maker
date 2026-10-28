@@ -50,6 +50,9 @@ jobs:
         run: |
           $env:GAMA_GS = (Resolve-Path ghostscript\bin\gswin64c.exe).Path
           $env:PYTHONPATH = "$pwd;$pwd\tests"
+          # Temp folder with Serbian letters, like a Windows user named Đorđe.
+          $t = "C:\Temp Đorđe Šćž"; New-Item -ItemType Directory -Force $t | Out-Null
+          $env:TEMP = $t; $env:TMP = $t
           python tools\ci_tests.py
 
       - name: Pravljenje programa (PyInstaller)
@@ -62,6 +65,7 @@ jobs:
             --add-data "ghostscript;ghostscript" `
             --collect-submodules webview `
             --collect-data pymupdf `
+            --hidden-import pystray._win32 `
             run_gama_cip.py
 
       - name: Samoprovera gotovog .exe programa
@@ -91,6 +95,21 @@ jobs:
           Write-Host $text
           $msg = $text.Replace("%", "%25").Replace("`r", "").Replace("`n", "%0A")
           if ($text -match "GUITEST OK") { Write-Host "::notice title=Prozor::$msg" } else { Write-Host "::error title=Prozor::$msg"; throw "Prozor nije prošao proveru" }
+
+      - name: Provera hot foldera (srpska slova u putanjama i imenima)
+        run: |
+          $base = "C:\CIP proba Đorđe Šćž"
+          New-Item -ItemType Directory -Force "$base\temp" | Out-Null
+          $env:TEMP = "$base\temp"; $env:TMP = "$base\temp"; $env:GAMA_CIP_DATA = "$base\podaci"
+          $report = "$pwd\hottest.txt"
+          $p = Start-Process dist\GamaCIPMaker\GamaCIPMaker.exe -ArgumentList "--hottest", "`"$base\Hot folderi ŠĐČĆŽ Ђурђевак`"", "`"$report`"" -PassThru
+          if (-not $p.WaitForExit(400000)) { Stop-Process -Id $p.Id -Force }
+          $text = if (Test-Path $report) { Get-Content $report -Raw -Encoding utf8 } else { "Izveštaj nije napravljen" }
+          $log = "$base\podaci\gama-cip.log"
+          if (Test-Path $log) { $text += "`n--- gama-cip.log ---`n" + ((Get-Content $log -Encoding utf8 | Select-Object -Last 25) -join "`n") }
+          Write-Host $text
+          $msg = $text.Replace("%", "%25").Replace("`r", "").Replace("`n", "%0A")
+          if ($text -match "HOTTEST OK") { Write-Host "::notice title=Hot folder::$msg" } else { Write-Host "::error title=Hot folder::$msg"; throw "Hot folder nije prošao proveru" }
 
       - name: Instaler (Inno Setup)
         id: inst
