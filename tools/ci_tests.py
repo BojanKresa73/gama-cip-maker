@@ -9,6 +9,8 @@ def escape(text):
 
 
 def main():
+    # Test names and messages contain Serbian letters; the Windows console code page may not.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     stream = io.StringIO()
     suite = unittest.defaultTestLoader.discover("tests")
     result = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)

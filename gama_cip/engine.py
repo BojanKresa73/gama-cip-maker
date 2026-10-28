@@ -174,7 +174,7 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
     for f in folder.glob("*.tif"):
         match = re.search(r"\((.*)\)\.tif$", f.name)
         if match:
-            name = unquote(match[1])
+            name = unquote(match[1], encoding="utf-8", errors="replace")
             if name in planes:
                 raise ValueError("Nejednoznačna imena separacija u rasteru.")
             planes[name] = f
@@ -269,7 +269,7 @@ def process_pdf(pdf, profile, target, progress=lambda s: None):
             if p["pdf_box"] == "CropBox":
                 args += ["-dUseCropBox"]
             args.append(str(Path(pdf).resolve()))
-            run = subprocess.run(args, capture_output=True, text=True, errors="replace", timeout=900, **NO_WINDOW)
+            run = subprocess.run(args, capture_output=True, encoding="utf-8", errors="replace", timeout=900, **NO_WINDOW)
             log = run.stdout + "\n" + run.stderr
             (output / f"page-{number:04d}.render.log").write_text(log, encoding="utf-8")
             if run.returncode:

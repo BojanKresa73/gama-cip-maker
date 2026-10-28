@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 env:
-  PYTHONUTF8: "1"
+  # No PYTHONUTF8 on purpose: tests must run with the same Windows code page as the installed program.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
