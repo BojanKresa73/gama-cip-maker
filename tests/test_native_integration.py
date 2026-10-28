@@ -39,7 +39,7 @@ def _has_gs():
 @unittest.skipUnless(_has_gs(), 'Ghostscript required')
 class NativeRaster(unittest.TestCase):
     def test_native_spot_planes_geometry_and_xml_export(self):
-        p=json.loads(next((ROOT/'profiles').glob('*.json')).read_text())
+        p=json.loads(next((ROOT/'profiles').glob('*.json')).read_text(encoding='utf-8'))
         p.update(plate_width_mm=100,plate_height_mm=100,zone_count=2,zone_width_mm=50,
                  area_height_mm=100,top_mm=0,shift_x_mm=0,render_dpi=600,preview_dpi=50)
         with tempfile.TemporaryDirectory() as td:

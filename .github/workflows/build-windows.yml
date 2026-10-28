@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+env:
+  PYTHONUTF8: "1"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
     runs-on: windows-latest
@@ -41,7 +45,7 @@ jobs:
         run: |
           $env:GAMA_GS = (Resolve-Path ghostscript\bin\gswin64c.exe).Path
           $env:PYTHONPATH = "$pwd;$pwd\tests"
-          python -m unittest discover -s tests -v
+          python tools\ci_tests.py
 
       - name: Pravljenje programa (PyInstaller)
         run: |
