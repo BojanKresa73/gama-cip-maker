@@ -211,7 +211,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_json(app.hot.status())
                 if method == "POST":
                     body = json.loads(self.body() or b"{}")
-                    return self.send_json(app.hot.configure(body.get("root"), body.get("enabled")))
+                    return self.send_json(app.hot.configure(body.get("root"), body.get("enabled"), body.get("keep_days")))
             if p == ["update"]:
                 if method == "GET":
                     return self.send_json(app.updater.status() | {"updated_from": app.updater.updated_from})

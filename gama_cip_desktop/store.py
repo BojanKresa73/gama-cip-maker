@@ -139,7 +139,8 @@ class ProfileStore:
             if not original_id and old:
                 raise ValueError("Profil sa tim ID-jem već postoji.")
             # Any change to geometry or output removes inherited verification.
-            comparable = lambda d: {k: v for k, v in (d or {}).items() if k not in ("validation_status", "notes", "name", "active", "export_enabled", "job_id")}
+            comparable = lambda d: {k: v for k, v in (d or {}).items() if k not in ("validation_status", "notes", "name", "active", "export_enabled", "job_id",
+                                                                       "hot_folder", "hot_folder_name", "hot_copy_to")}
             if not old or comparable(old) != comparable(p):
                 p["validation_status"] = "unverified"
             else:

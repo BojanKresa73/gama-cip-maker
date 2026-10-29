@@ -37,6 +37,8 @@ LOG = logging.getLogger("gama.cip.hot")
 FINISHING = re.compile(r"(STANC|ŠTANC|BIG|PERFORACIJA)", re.I)
 WORK = ".u_obradi"
 SCAN_SECONDS = 2.0
+CLEAN_SECONDS = 3600          # Obradjeno is cleaned at most once an hour
+KEEP_CHOICES = (0, 5, 14, 30, 90)   # days; 0 = never delete
 
 
 def output_dir_name(profile):
@@ -71,6 +73,7 @@ class HotFolders:
         self.events = deque(self._load_events(), maxlen=300)
         self.seq = max((e.get("seq", 0) for e in self.events), default=0)
         self.stop = threading.Event()
+        self.last_clean = 0
         self.settings = self._load()
         self.thread = threading.Thread(target=self._loop, daemon=True, name="cip-hotfolder")
         self.thread.start()
@@ -110,7 +113,14 @@ class HotFolders:
     def enabled(self):
         return bool(self.root) and self.settings.get("hot_enabled", True)
 
-    def configure(self, root=None, enabled=None):
+    @property
+    def keep_days(self):
+        try:
+            return max(0, int(self.settings.get("keep_done_days", 0)))
+        except (TypeError, ValueError):
+            return 0
+
+    def configure(self, root=None, enabled=None, keep_days=None):
         with self.lock:
             if root is not None:
                 root = Path(str(root).strip().strip('"'))
@@ -126,6 +136,15 @@ class HotFolders:
                 self.settings["hot_root"] = str(root)
             if enabled is not None:
                 self.settings["hot_enabled"] = bool(enabled)
+            if keep_days is not None:
+                try:
+                    keep_days = int(keep_days)
+                except (TypeError, ValueError):
+                    raise ValueError("Neispravan broj dana.") from None
+                if keep_days < 0 or keep_days > 3650:
+                    raise ValueError("Broj dana mora biti između 0 i 3650.")
+                self.settings["keep_done_days"] = keep_days
+                self.last_clean = 0
             self._save()
             if self.enabled:
                 self.ensure_folders()
@@ -168,6 +187,7 @@ class HotFolders:
                 "Ubacite PDF u folder Ulaz štamparije. Program pravi XML (ili PPF) u folderu XML/PPF,\r\n"
                 "a PDF premešta u Obradjeno. Ako obrada ne uspe, PDF ide u Greske zajedno sa .txt objašnjenjem.\r\n"
                 "Broj posla (Job ID) uzima se iz imena fajla: prvi samostalni broj od bar 4 cifre (npr. 26527).\r\n"
+                "Uputstvo za rad: u programu, levo u meniju „Uputstvo“.\r\n"
                 "Program mora da bude pokrenut (ikonica pored sata).\r\n", encoding="utf-8-sig")
 
     def status(self):
@@ -183,6 +203,7 @@ class HotFolders:
             today = [e for e in mine if e["time"] >= midnight]
             last = next((e for e in reversed(mine) if e["status"] != "u obradi"), None)
             folders.append({"profile": item["profile"]["name"], "printshop": item["profile"]["printshop"],
+                            "copy_to": (item["profile"].get("hot_copy_to") or "").strip() or None,
                             "profile_id": item["profile"]["id"],
                             "in": str(item["in"]), "out": str(item["out"]), "base": str(item["base"]),
                             "output": output_dir_name(item["profile"]), "pending": pending,
@@ -190,6 +211,7 @@ class HotFolders:
                             "today_ok": sum(1 for e in today if e["status"] == "OK"),
                             "today_errors": sum(1 for e in today if e["status"] == "GREŠKA"), "last": last})
         return {"root": str(self.root) if self.root else None, "enabled": self.enabled, "seq": self.seq,
+                "keep_days": self.keep_days, "keep_choices": list(KEEP_CHOICES),
                 "folders": sorted(folders, key=lambda f: f["base"].lower()), "events": list(self.events)[::-1][:100]}
 
     def activity(self, since=0):
@@ -209,6 +231,9 @@ class HotFolders:
                     recovered = True
                 for pid, item in layout.items():
                     self._scan(pid, item)
+                if self.keep_days and time.time() - self.last_clean > CLEAN_SECONDS:
+                    self.last_clean = time.time()
+                    self.clean_done(layout)
             except Exception:  # noqa: BLE001 - the watcher must keep running
                 LOG.exception("Greška u praćenju hot foldera")
 
@@ -221,6 +246,31 @@ class HotFolders:
                     if f.is_file():
                         os.replace(f, unique(item["in"] / f.name))
                         LOG.info("Vraćeno u Ulaz posle prekida: %s", f.name)
+
+    def clean_done(self, layout=None):
+        """Delete PDFs from Obradjeno older than keep_days (like PressPerCent's "Delete processed jobs after").
+
+        Only *.pdf directly in Obradjeno; age is the time the file was moved there. Returns the count.
+        """
+        days = self.keep_days
+        if not days:
+            return 0
+        limit = time.time() - days * 86400
+        removed = 0
+        for item in (layout or self.layout()).values():
+            folder = item["done"]
+            if not folder.is_dir():
+                continue
+            for f in folder.iterdir():
+                try:
+                    if f.is_file() and f.suffix.lower() == ".pdf" and f.stat().st_mtime < limit:
+                        f.unlink()
+                        removed += 1
+                except OSError:
+                    LOG.warning("Nije obrisan stari fajl %s", f)
+        if removed:
+            LOG.info("Obradjeno: obrisano %d PDF-ova starijih od %d dana", removed, days)
+        return removed
 
     def _scan(self, pid, item):
         folder = item["in"]
@@ -286,7 +336,12 @@ class HotFolders:
             self._fail(item, claimed, original, f"Izvoz nije uspeo: {exc}", profile, job)
             return
         item["done"].mkdir(parents=True, exist_ok=True)
-        os.replace(claimed, unique(item["done"] / original))
+        done = unique(item["done"] / original)
+        os.replace(claimed, done)
+        try:
+            os.utime(done)   # age in Obradjeno counts from processing, not from when the PDF was made
+        except OSError:
+            pass
         self._event(original, profile, "OK", ", ".join(made) + ("" if not warnings else " · " + " ".join(warnings)),
                     job_id=job["id"], outputs=made, out_dir=str(item["out"]))
         self._journal(original, profile, job, "OK", made, warnings)
@@ -319,6 +374,18 @@ class HotFolders:
                 write_atomic(out / name, archive.read(name))
                 made.append(name)
         bundle.unlink(missing_ok=True)
+        copy_to = (profile.get("hot_copy_to") or "").strip().strip('"')
+        if copy_to:   # second destination, e.g. the folder the press console reads (PressPerCent "Folder Action #2")
+            try:
+                target = Path(copy_to)
+                if not target.is_absolute():
+                    raise OSError("putanja nije puna (npr. \\\\server\\CIP ili D:\\CIP)")
+                target.mkdir(parents=True, exist_ok=True)
+                for name in made:
+                    write_atomic(target / name, (out / name).read_bytes())
+            except OSError as exc:
+                LOG.warning("Kopija u %s nije uspela: %s", copy_to, exc)
+                warnings.append(f"KOPIJA u {copy_to} NIJE USPELA: {exc}")
         return made, warnings
 
     def _fail(self, item, claimed, original, reason, profile, job=None):
@@ -355,6 +422,9 @@ class HotFolders:
         if status in ("OK", "GREŠKA") and self.app.notify:
             title = f"{profile.get('printshop')}: {'gotovo' if status == 'OK' else 'GREŠKA'}"
             text = f"{name}\n" + (f"→ {', '.join(o for o in (outputs or []) if not o.endswith('.PNG'))}" if status == "OK" else message[:180])
+            if status == "OK" and "NIJE USPELA" in message:
+                title = f"{profile.get('printshop')}: gotovo, ali kopija NIJE uspela"
+                text = f"{name}\n" + message[message.find("KOPIJA"):][:180]
             try:
                 self.app.notify(title, text)
             except Exception:  # noqa: BLE001 - a notification must never break processing

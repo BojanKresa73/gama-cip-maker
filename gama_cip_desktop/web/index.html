@@ -134,6 +134,26 @@ legend{font-weight:700;font-size:13px;padding:0 6px;color:var(--ink)}
 .vtip b{font-size:12.5px}.vtip .r{display:flex;gap:8px;align-items:center;justify-content:space-between}
 .vtip .sw{width:10px;height:10px}
 .vfoot{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-3);padding:8px 10px;border-top:1px solid var(--line)}
+/* manual */
+.doc{display:grid;grid-template-columns:220px minmax(0,1fr);gap:22px;align-items:start;max-width:1180px}
+.toc{position:sticky;top:0;display:flex;flex-direction:column;gap:2px;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:10px}
+.toc a{color:var(--ink-2);text-decoration:none;padding:6px 8px;border-radius:6px;font-size:13px;cursor:pointer}
+.toc a:hover{background:#f3f6fb;color:var(--ink)}
+.toc a.on{background:var(--info-bg);color:var(--blue-ink);font-weight:650}
+.dsec{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:20px 24px;margin-bottom:14px;scroll-margin-top:8px}
+.dsec h2{font-size:17px;margin:0 0 10px}
+.dsec h3{font-size:14px;margin:16px 0 6px}
+.dsec p,.dsec li{color:var(--ink-2);line-height:1.6}
+.dsec p{margin:0 0 10px}
+.dsec ul,.dsec ol{margin:0 0 10px;padding-left:20px}
+.dsec b{color:var(--ink)}
+.dsec .note{margin:10px 0}
+.tree{font:12.5px/1.6 var(--mono);background:#f6f8fc;border:1px solid var(--line);border-radius:8px;padding:10px 14px;white-space:pre;overflow:auto;color:var(--ink)}
+.kbd{display:inline-block;font:600 11.5px var(--mono);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:5px;padding:0 6px;background:#fff;color:var(--ink)}
+.dtab{width:100%;border-collapse:collapse;font-size:13px;margin:4px 0 10px}
+.dtab td,.dtab th{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top;color:var(--ink-2)}
+.dtab th{color:var(--ink);font-weight:650;background:#f6f8fc}
+@media (max-width:1000px){.doc{grid-template-columns:1fr}.toc{position:static}}
 .fcard{display:grid;grid-template-columns:1fr auto;gap:10px 16px;padding:14px;border:1px solid var(--line);border-radius:10px;background:#fff}
 .fcard .stats{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);grid-column:1/-1;align-items:center}
 .fcard .stats b{color:var(--ink)}
@@ -154,6 +174,7 @@ legend{font-weight:700;font-size:13px;padding:0 6px;color:var(--ink)}
       <button data-view="jobs" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>Obrada</button>
       <button data-view="hot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/><path d="M12 12v5M9.5 14.5 12 17l2.5-2.5"/></svg>Hot folderi<span class="badge" id="hotbadge"></span></button>
       <button data-view="profiles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Profili mašina</button>
+      <button data-view="help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M8 7h7M8 11h7"/></svg>Uputstvo</button>
     </nav>
     <div class="foot">
       <div id="gs"><span class="dot" style="background:#7b86a0"></span>Proveravam Ghostscript…</div>
@@ -283,6 +304,7 @@ function go(v){ S.view=v; document.querySelectorAll(".nav button").forEach(b=>b.
 function render(){
   clearTimeout(S.hotPoll);
   if (S.view==="hot"){ S.unseen=0; badge(); renderHot(); loadHot().then(()=>{ if (S.view==="hot") renderHot(); }); return; }
+  if (S.view==="help") return renderHelp();
   S.view==="jobs" ? renderJobs() : renderProfiles();
 }
 
@@ -329,12 +351,17 @@ function renderHot(){
       <div class="small muted">Glavni folder</div><div class="mono" style="font-size:14px;word-break:break-all">${esc(h.root)}</div>
       <div class="small muted" style="margin-top:6px">Broj posla (Job ID) uzima se iz imena PDF-a: prvi samostalni broj od bar 4 cifre (npr. <span class="mono">…_26527_…</span>). Dnevnik svih poslova: <span class="mono">dnevnik.csv</span>.</div></div>
       <div class="row"><label class="check"><input type="checkbox" id="hon" ${h.enabled?"checked":""}>Uključeno</label>
-        <button class="btn ghost" id="hopen">Otvori</button><button class="btn ghost" id="hchange">Promeni folder</button></div></div></div>
+        <button class="btn ghost" id="hopen">Otvori</button><button class="btn ghost" id="hchange">Promeni folder</button></div></div>
+      <div class="row" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line);gap:10px">
+        <span class="small">Obrađene PDF-ove iz <b>Obradjeno</b> briši posle</span>
+        <select id="hkeep" style="width:auto">${(h.keep_choices||[0,5,14,30,90]).map(d=>`<option value="${d}" ${+h.keep_days===d?"selected":""}>${d?d+" dana":"nikad (ne briši)"}</option>`).join("")}</select>
+        <span class="small muted">PressPerCent u Eurodream-u briše posle 5 dana. Briše se samo PDF iz Obradjeno — XML/PPF, Greske i arhiva u programu ostaju.</span></div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px;margin:0 0 20px">${(h.folders||[]).map(f=>{
         const l=f.last; const lc = l ? (l.status==="OK"?"ok":"bad") : "";
         return `<div class="fcard">
         <div style="min-width:0"><div class="nm" style="font-size:15px;font-weight:700">${esc(f.printshop)} <span class="small muted" style="font-weight:400">· Ulaz → ${esc(f.output)}</span></div>
-          <div class="small muted mono" style="word-break:break-all">${esc(f.base)}</div></div>
+          <div class="small muted mono" style="word-break:break-all">${esc(f.base)}</div>
+          ${f.copy_to?`<div class="small muted" style="word-break:break-all;margin-top:3px">+ kopija u <span class="mono">${esc(f.copy_to)}</span></div>`:""}</div>
         <div class="row" style="gap:6px;align-items:flex-start"><button class="btn ghost" style="padding:6px 10px" data-open="${esc(f.in)}">Ulaz</button><button class="btn ghost" style="padding:6px 10px" data-open="${esc(f.out)}">${esc(f.output)}</button></div>
         <div class="stats">
           ${f.working||f.pending ? `<span><span class="spin" style="width:11px;height:11px;vertical-align:-1px"></span> <b>${f.working+f.pending}</b> u radu</span>` : `<span class="chip">čeka PDF</span>`}
@@ -346,6 +373,7 @@ function renderHot(){
     <div class="seps" style="margin:0">${ev || `<div class="muted small">Još nema poslova iz hot foldera.</div>`}</div>`;
   $("#hon").onchange = async e => { try{ S.hot = await api("POST","/api/hot",{enabled:e.target.checked}); renderHot(); }catch(x){ toast(x.message,true); } };
   $("#hopen").onclick = () => openPath(h.root);
+  $("#hkeep").onchange = async e => { try{ S.hot = await api("POST","/api/hot",{keep_days:+e.target.value}); toast(+e.target.value ? `Obrađeni PDF-ovi brišu se posle ${e.target.value} dana.` : "Obrađeni PDF-ovi se ne brišu."); renderHot(); }catch(x){ toast(x.message,true); } };
   $("#hchange").onclick = async () => { const p = hasDialogs() ? await pickFolder() : prompt("Nova putanja glavnog foldera:", h.root); if (p) saveRoot(p); };
   document.querySelectorAll("[data-open]").forEach(b => b.onclick = e => { e.stopPropagation(); openPath(b.dataset.open); });
   document.querySelectorAll("[data-job]").forEach(b => b.onclick = e => { e.preventDefault(); if (b.dataset.job) openHotJob(b.dataset.job); });
@@ -726,7 +754,8 @@ const FIELDS = [
     {k:"sheet",label:"Sheet",type:"text",show:isXml,hint:"Oznaka tabaka u XML-u. U uzorcima: S1."},
     {k:"preview_url_prefix",label:"Adresa PNG pregleda (Preview URL prefiks)",type:"text",wide:true,show:isXml,
      hint:"Odakle konzola mašine čita PNG sliku. Saznati u štampariji — vrednost iz uzoraka je privremena."}]],
-  ["Hot folder",[{k:"hot_folder",label:"Hot folder za ovaj profil",type:"chk",def:true},{k:"hot_folder_name",label:"Ime foldera",type:"text",hint:"Prazno = ime štamparije."}]],
+  ["Hot folder",[{k:"hot_folder",label:"Hot folder za ovaj profil",type:"chk",def:true},{k:"hot_folder_name",label:"Ime foldera",type:"text",hint:"Prazno = ime štamparije."},
+    {k:"hot_copy_to",label:"Kopiraj izlaz i u folder",type:"text",wide:true,hint:"Nije obavezno. Npr. folder iz kog konzola mašine čita PPF/XML (\\\\server\\CIP ili Z:\\CIP). PressPerCent kod Eurodream-a izvozi na dva mesta: „Exported“ i „CIP“. Ako kopiranje ne uspe, dobićete obaveštenje."}]],
   ["Status",[{k:"active",label:"Aktivan (može se koristiti za obradu)",type:"chk"},{k:"export_enabled",label:"Izvoz dozvoljen",type:"chk",hint:"Dozvoljava pravljenje XML/PPF fajla za mašinu."}]],
   ["Orijentacija",[{k:"rotation",label:"Rotacija",type:"sel",num:true,opts:[[0,"0°"],[90,"90°"],[180,"180°"],[270,"270°"]]},{k:"pdf_box",label:"PDF okvir",type:"sel",opts:[["MediaBox","MediaBox"],["CropBox","CropBox"]]},
     {k:"mirror_x",label:"Ogledalo levo-desno",type:"chk"},{k:"mirror_y",label:"Ogledalo gore-dole",type:"chk"},{k:"reverse_zones",label:"Obrnut redosled zona",type:"chk"}],"adv"],
@@ -822,6 +851,144 @@ function bindForm(){
   $("#pdup") && ($("#pdup").onclick=()=>{ S.profile={...structuredClone(S.profile), id:"", name:S.profile.name+" (kopija)", validation_status:"unverified", _new:true}; renderProfiles(); });
   $("#pdel") && ($("#pdel").onclick=async()=>{ if(!confirm(`Obrisati profil „${S.profile.name}“? Raniji poslovi ostaju sačuvani.`)) return;
     try{ await api("DELETE","/api/profiles/"+encodeURIComponent(S.profile.id)); await loadProfiles(); S.profile=null; renderProfiles(); toast("Profil je obrisan."); }catch(e){toast(e.message,true);} });
+}
+/* ---------------- manual ---------------- */
+const K = k => `<span class="kbd">${k}</span>`;
+const HELP = [
+["start", "Šta program radi", `
+<p>Gama United CIP Maker iz PDF-a ploče računa <b>pokrivenost boje po zonama ključeva boje</b> i pravi fajl koji konzola štamparske mašine učitava, da bi ključevi boje bili postavljeni pre prvog otiska.</p>
+<table class="dtab"><tr><th>Izlaz</th><th>Za koje mašine</th><th>Šta se dobija</th></tr>
+<tr><td><b>XML + PNG</b></td><td>Konzole sa DI-Plot / JDF uvozom (npr. Birograf, Rapida 105)</td><td>XML sa vrednostima po zonama i PNG pregled ploče</td></tr>
+<tr><td><b>PPF</b> (CIP3 2.1)</td><td>Konzole koje čitaju PPF (npr. Eurodream) — isti format koji pravi PressPerCent</td><td>Jedan .PPF fajl po strani PDF-a</td></tr></table>
+<p>Spot boje (Pantone i sl.) ostaju kao posebne ploče. Separacije za doradu (<b>štanc, big, perforacija</b>) program sam prepoznaje i ne šalje ih u izlaz.</p>
+<p>Sve se radi na ovom računaru — PDF-ovi se nigde ne šalju.</p>
+<div class="note info">Postoje dva načina rada: <b>hot folderi</b> (ubacite PDF u folder, izlaz se pojavi sam — preporučeno za svakodnevni rad) i <b>ručna obrada</b> na strani „Obrada“ (kad želite da pogledate separacije pre izvoza).</div>`],
+
+["install", "Instalacija i pokretanje", `
+<ol>
+<li>Pokrenite <b>GamaCIPMaker-Setup-….exe</b>. Administratorska prava nisu potrebna.</li>
+<li>Ako Windows prikaže plavi prozor „Windows protected your PC“: kliknite <b>More info</b> → <b>Run anyway</b>. Program nema plaćeni digitalni potpis, pa ga Windows ne prepoznaje.</li>
+<li>Ostavite uključeno <b>„Pokreni pri prijavi na Windows“</b> — bez toga hot folderi ne rade dok ne otvorite program ručno.</li>
+</ol>
+<p>Ghostscript (koji iscrtava PDF) je ugrađen u program, ništa dodatno ne treba instalirati. Dole levo u meniju piše <b>Ghostscript</b> sa zelenom tačkom kad je sve u redu.</p>
+<h3>Program pored sata</h3>
+<p>Kad su hot folderi uključeni i zatvorite prozor (X), program <b>nastavlja da radi</b> kao ikonica pored sata i prati hot foldere. Prozor ponovo otvarate klikom na ikonicu ili prečicom na radnoj površini. Potpuno gašenje: desni klik na ikonicu → <b>Izlaz (zaustavlja hot foldere)</b>.</p>
+<h3>Antivirus</h3>
+<p>Neki antivirusi (npr. Avast) mogu greškom da blokiraju nov program. Ako se to desi, dodajte folder programa u izuzetke (<span class="mono">C:\\Program Files\\Gama CIP Maker</span> ili <span class="mono">%LOCALAPPDATA%\\Programs\\Gama CIP Maker</span>) i javite se da prijavimo lažnu uzbunu.</p>`],
+
+["hot", "Rad preko hot foldera", `
+<p>Pri prvom pokretanju program pita gde da napravi hot foldere (npr. <span class="mono">D:\\CIP Hot folderi</span>). U njemu pravi po jedan folder za svaku štampariju čiji je profil spreman:</p>
+<div class="tree">D:\\CIP Hot folderi\\
+├─ Birograf\\
+│  ├─ Ulaz          ← ovde ubacite PDF
+│  ├─ XML           ← ovde se pojavi XML + PNG
+│  ├─ Obradjeno     ← ovde program premesti obrađen PDF
+│  └─ Greske        ← PDF koji nije mogao da se obradi + .txt sa razlogom
+├─ Eurodream\\
+│  ├─ Ulaz
+│  ├─ PPF           ← za PPF profile folder se zove PPF
+│  ├─ Obradjeno
+│  └─ Greske
+└─ dnevnik.csv      ← jedan red za svaki PDF (otvara se u Excelu)</div>
+<p>Ako jedna štamparija ima više mašina, svaka mašina dobija svoj podfolder sa istom strukturom.</p>
+<h3>Kako se radi</h3>
+<ol>
+<li>Kopirajte ili snimite PDF u folder <b>Ulaz</b> odgovarajuće štamparije.</li>
+<li>Program sačeka da se kopiranje završi (velik PDF preko mreže može da traje), pa ga uzme u obradu. Obrada jedne ploče traje obično 5–20 sekundi.</li>
+<li>Gotov fajl se pojavi u <b>XML</b> ili <b>PPF</b> folderu, PDF ode u <b>Obradjeno</b>, a pored sata se pojavi obaveštenje.</li>
+</ol>
+<p>Srpska slova (latinica i ćirilica) u imenima foldera i PDF-ova su dozvoljena. U imenima izlaznih fajlova program ih prevodi u slova bez kvačica (Đorđe → Djordje), jer ih konzole mašina često ne čitaju.</p>
+<h3>Ime PDF-a je važno</h3>
+<ul>
+<li><b>Broj posla (Job ID)</b> uzima se iz imena: prvi samostalni broj od bar 4 cifre. <span class="mono">26527_ed_glasnik_tabaci.pdf</span> → <b>26527</b>. Brojevi zalepljeni uz slova (745x605, p0001) se ne računaju.</li>
+<li><b>Lice / poleđina:</b> ako ime sadrži reč <b>back</b>, <b>naličje</b> ili <b>poleđina</b>, upisuje se Back; inače Front (isto kao PressPerCent).</li>
+</ul>
+<h3>Strana „Hot folderi“ u programu</h3>
+<p>Za svaku štampariju vidite koliko je PDF-ova danas obrađeno, koliko je grešaka i koji je bio poslednji. Ispod je spisak poslednjih poslova — klik na posao otvara pregled po separacijama. Dugmad <b>Ulaz</b> i <b>XML/PPF</b> otvaraju foldere. Broj na meniju „Hot folderi“ pokazuje koliko je poslova završeno otkad ste poslednji put gledali tu stranu.</p>
+<h3>Kopija u drugi folder</h3>
+<p>U profilu mašine (odeljak <b>Hot folder</b>) možete upisati <b>„Kopiraj izlaz i u folder“</b> — npr. mrežni folder iz kog konzola mašine čita fajlove. Izlaz se tada piše i u XML/PPF folder i u taj folder. Ako kopija ne uspe (mreža nedostupna), posao je ipak gotov, ali dobijate upozorenje.</p>
+<h3>Brisanje starih PDF-ova</h3>
+<p>Na strani „Hot folderi“ birate posle koliko dana se brišu PDF-ovi iz <b>Obradjeno</b> (podrazumevano: nikad). Briše se samo PDF iz Obradjeno; izlazni fajlovi, Greske i arhiva u programu ostaju.</p>
+<div class="note warn"><b>Program mora biti pokrenut</b> (ikonica pored sata) da bi hot folderi radili. PDF ubačen dok program ne radi biće obrađen čim se program pokrene.</div>`],
+
+["errors", "Kada nešto ne uspe", `
+<p>Ništa se ne pravi „napola“: ako obrada ne uspe, PDF ide u <b>Greske</b>, a pored njega <span class="mono">ime.pdf.greska.txt</span> sa razlogom. Pojavi se i crveno obaveštenje.</p>
+<table class="dtab"><tr><th>Poruka / situacija</th><th>Šta uraditi</th></tr>
+<tr><td>Format PDF-a ne odgovara profilu</td><td>PDF nije ploča te mašine (pogrešan folder ili pogrešan izvoz iz prepress-a). Ubacite pravi PDF.</td></tr>
+<tr><td>Strana ima samo separacije dorade</td><td>Na strani su samo štanc/big/perforacija — nema šta da se pošalje mašini.</td></tr>
+<tr><td>PDF stoji u Ulaz i ništa se ne dešava</td><td>Proverite: da li je program pokrenut (ikonica pored sata), da li su hot folderi uključeni na strani „Hot folderi“, da li je profil štamparije „Spreman“. Fajl koji se još kopira program namerno čeka.</td></tr>
+<tr><td>Potreban je PDF bez lozinke</td><td>PDF je zaključan — izvezite ga ponovo bez zaštite.</td></tr>
+</table>
+<p>Kad ispravite problem, PDF iz <b>Greske</b> samo ponovo ubacite u <b>Ulaz</b>.</p>`],
+
+["manual", "Ručna obrada (strana „Obrada“)", `
+<ol>
+<li>Izaberite <b>profil mašine</b> (pamti se poslednji izbor).</li>
+<li>Prevucite PDF u polje ili kliknite i izaberite fajl.</li>
+<li>Kad se obrada završi, vidite pregled ploče i za svaku separaciju grafikon pokrivenosti po zonama (prosek i maksimum).</li>
+<li>Štiklirajte koje separacije idu u izlaz (dorada je isključena sama).</li>
+<li>Proverite <b>Job ID</b> (za XML) i kliknite <b>Izvezi</b>. Program pita gde da sačuva fajl: PPF se čuva direktno, XML + PNG kao ZIP.</li>
+</ol>
+<p>Ispod separacija piše koja je <b>strana tabaka</b> (Front/Back) i zašto.</p>`],
+
+["viewer", "Pregled separacija, zum i lupa", `
+<table class="dtab">
+<tr><th>Radnja</th><th>Kako</th></tr>
+<tr><td>Separacije / Kompozit</td><td>Dugmad gore levo. U „Separacije“ svaku boju uključujete/isključujete klikom na nju; <b>dupli klik</b> = prikaži samo tu boju; „Sve“ vraća sve.</td></tr>
+<tr><td>Zum</td><td><b>Točkić miša</b> zumira oko kursora; dugmad − / + ; klik na procenat ili „Ceo tabak“ vraća ceo prikaz.</td></tr>
+<tr><td>Pomeranje</td><td>Prevlačenje mišem kad je slika uvećana.</td></tr>
+<tr><td>Lupa</td><td>Dugme „Lupa“ ili taster ${K("L")}. ${K("Shift")} + točkić menja uvećanje lupe. U lupi se vide i linije zona.</td></tr>
+<tr><td>Pokrivenost na mestu</td><td>Pređite mišem preko ploče — vidi se zona i pokrivenost svake boje na tom mestu.</td></tr>
+<tr><td>Ceo ekran</td><td>Dugme „Ceo ekran“; izlaz tasterom ${K("Esc")}.</td></tr>
+</table>
+<p>Plave vertikalne linije su granice zona ključeva boje, a brojevi iznad su brojevi zona.</p>`],
+
+["archive", "Arhiva poslova", `
+<p>Na strani „Obrada“, levo, su svi poslovi — i ručni i iz hot foldera — grupisani po danima.</p>
+<ul>
+<li><b>Pretraga</b> radi po imenu fajla, broju posla i štampariji, bez obzira na kvačice i pismo (<i>stanc</i>, <i>štanc</i> i <i>штанц</i> nalaze isto).</li>
+<li><b>Filteri:</b> štamparija, status (završeno / greška / u obradi), izvor (hot folder / ručno) i period.</li>
+<li>Klik na posao otvara ga sa pregledom; posao sa greškom može se <b>pokrenuti ponovo</b>.</li>
+</ul>
+<p>Čuva se do 5000 poslova. Posle 90 dana brišu se veliki fajlovi posla (originalni PDF, uvećani pregledi), a vrednosti po zonama i male sličice ostaju.</p>`],
+
+["profiles", "Profili mašina", `
+<p>Profil opisuje jednu mašinu: format ploče, broj i širinu zona, položaj zona i koji izlaz mašina čita.</p>
+<ul>
+<li><span class="chip ok">Spreman</span> — profil je potpun i može da se koristi. <span class="chip bad">Nepotpun</span> — nedostaju podaci (spisak piše na vrhu profila); takav profil nema hot folder.</li>
+<li><span class="chip info">Upoređen sa uzorcima</span> — rezultat je upoređen sa fajlovima koje je štamparija ranije dobijala. <span class="chip ok">Proveren na mašini</span> — potvrđeno na konzoli. <span class="chip warn">Neproveren</span> — svaka izmena geometrije ili izlaza vraća profil u ovo stanje.</li>
+<li>Za novu mašinu najlakše je <b>Dupliraj</b> sličan profil pa promeniti podatke.</li>
+<li>Odeljak <b>Napredno</b> (rotacija, ogledalo, rezolucija, tehnička polja) ne menjajte bez potrebe.</li>
+</ul>
+<table class="dtab"><tr><th>Štamparija</th><th>Stanje</th></tr>
+<tr><td>Birograf (Rapida 105, 1060 × 795)</td><td>XML + PNG. Upoređeno sa uzorcima. Adresu PNG pregleda (Preview URL) treba potvrditi u štampariji.</td></tr>
+<tr><td>Eurodream (745 × 605)</td><td>PPF kao PressPerCent (EuroDream8, 23 zone × 32,5 mm). Upoređeno sa PressPerCent fajlovima.</td></tr>
+<tr><td>Bigraf, No Kachi, Unagraf</td><td>Čekaju podatke o mašini — nepotpuni.</td></tr></table>
+<div class="note warn">Nijedan profil još nije potvrđen na samoj konzoli mašine. Prvi posao za svaku mašinu proverite: uporedite ključeve boje sa onim što je mašina do sada dobijala.</div>`],
+
+["update", "Ažuriranje programa", `
+<p>Program sam proverava nove verzije pri pokretanju i na svakih 6 sati. Kad nova verzija stigne, dole levo pored broja verzije pojavi se oznaka <span class="upd">↑</span>.</p>
+<ul>
+<li>Ako je uključeno automatsko instaliranje, nova verzija se instalira kad je program samo pored sata i nema poslova u obradi, pa se program sam ponovo pokrene.</li>
+<li>Klik na broj verzije otvara prozor gde možete proveriti odmah ili instalirati odmah.</li>
+<li>Profili, hot folderi i arhiva poslova ostaju posle ažuriranja.</li>
+</ul>`],
+
+["data", "Gde su podaci i kako prijaviti problem", `
+<p>Profili, arhiva poslova i podešavanja su u <span class="mono">%LOCALAPPDATA%\\GamaCIP</span> — otvara se linkom <b>„Folder sa podacima“</b> dole levo. Tu je i dnevnik rada programa <span class="mono">gama-cip.log</span>.</p>
+<p>Kad prijavljujete problem, pošaljite: <b>PDF</b> koji je napravio problem, <b>.greska.txt</b> iz foldera Greske (ako postoji), <b>gama-cip.log</b> i broj verzije (dole levo). PPF fajlove šaljite <b>spakovane u ZIP</b> — neki programi za poruke ih oštete jer ih čitaju kao tekst.</p>`],
+];
+function renderHelp(){
+  $("#main").innerHTML = `<h1>Uputstvo za rad</h1><p class="lead">Gama United CIP Maker · verzija ${esc(S.version||"")}</p>
+    <div class="doc"><nav class="toc" id="toc">${HELP.map(([id,t],i)=>`<a data-sec="${id}" class="${i?"":"on"}">${t}</a>`).join("")}</nav>
+    <div id="docbody">${HELP.map(([id,t,body])=>`<section class="dsec" id="h-${id}"><h2>${t}</h2>${body}</section>`).join("")}</div></div>`;
+  const main = $("main"), links = [...document.querySelectorAll("#toc a")];
+  links.forEach(a => a.onclick = () => $("#h-"+a.dataset.sec).scrollIntoView({behavior:"smooth", block:"start"}));
+  main.scrollTop = 0;
+  main.onscroll = () => { if (S.view!=="help") { main.onscroll = null; return; }
+    const top = main.getBoundingClientRect().top + 40; let cur = HELP[0][0];
+    for (const [id] of HELP){ const el = $("#h-"+id); if (el && el.getBoundingClientRect().top <= top) cur = id; }
+    links.forEach(a => a.classList.toggle("on", a.dataset.sec===cur)); };
 }
 init();
 </script>

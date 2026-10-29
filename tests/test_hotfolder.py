@@ -161,6 +161,56 @@ class HotFolder(unittest.TestCase):
         finally:
             again.hot.stop.set()
 
+    def test_copy_to_second_folder(self):
+        """PPF is also written to a second folder (the press console's CIP folder), with Serbian letters in the path."""
+        profile = self.app.profiles.get("eurodream-745x605")
+        status_before = profile["validation_status"]
+        copy = Path(self.tmp.name) / "Mašina CIP Ђ"
+        profile["hot_copy_to"] = str(copy)
+        saved = self.app.profiles.save(profile, "eurodream-745x605")
+        self.assertEqual(saved["validation_status"], status_before)   # hot settings do not reset verification
+        eur = Path(self.folders["Eurodream"]["base"])
+        build(eur / "izvor.tmp", 745, 605)
+        os.replace(eur / "izvor.tmp", eur / "Ulaz" / "Kopija 26530.pdf")
+        self.assertTrue(wait(lambda: (copy / "Kopija_26530.p0001.PPF").exists()), self.app.hot.status())
+        self.assertEqual((copy / "Kopija_26530.p0001.PPF").read_bytes(), (eur / "PPF" / "Kopija_26530.p0001.PPF").read_bytes())
+
+    def test_copy_failure_is_reported_but_main_output_stays(self):
+        notes = []
+        self.app.notify = lambda title, text: notes.append((title, text))
+        profile = self.app.profiles.get("eurodream-745x605")
+        blocker = Path(self.tmp.name) / "fajl_a_ne_folder"
+        blocker.write_text("x", encoding="utf-8")
+        profile["hot_copy_to"] = str(blocker / "CIP")
+        self.app.profiles.save(profile, "eurodream-745x605")
+        eur = Path(self.folders["Eurodream"]["base"])
+        build(eur / "izvor.tmp", 745, 605)
+        os.replace(eur / "izvor.tmp", eur / "Ulaz" / "Neuspela kopija 26531.pdf")
+        self.assertTrue(wait(lambda: any(e["status"] == "OK" for e in self.app.hot.activity(0)["events"])), self.app.hot.status())
+        done = next(e for e in self.app.hot.activity(0)["events"] if e["status"] == "OK")
+        self.assertIn("NIJE USPELA", done["message"])
+        self.assertTrue((eur / "PPF" / "Neuspela_kopija_26531.p0001.PPF").exists())
+        self.assertIn("kopija NIJE uspela", notes[0][0])
+
+    def test_clean_processed_after_days(self):
+        bir = Path(self.folders["Birograf"]["base"])
+        old, new = bir / "Obradjeno" / "Stari š.pdf", bir / "Obradjeno" / "Novi ž.pdf"
+        for f in (old, new):
+            f.write_bytes(b"%PDF-1.4")
+        (bir / "Obradjeno" / "beleška.txt").write_text("ostaje", encoding="utf-8")
+        ten_days = time.time() - 10 * 86400
+        os.utime(old, (ten_days, ten_days))
+        self.assertEqual(self.app.hot.clean_done(), 0)           # default: never delete
+        status = self.app.hot.configure(keep_days=5)
+        self.assertEqual(status["keep_days"], 5)
+        self.assertEqual(self.app.hot.clean_done(), 1)
+        self.assertFalse(old.exists())
+        self.assertTrue(new.exists())
+        self.assertTrue((bir / "Obradjeno" / "beleška.txt").exists())
+        with self.assertRaises(ValueError):
+            self.app.hot.configure(keep_days=-1)
+        self.assertEqual(json.loads((self.app.root / "settings.json").read_text(encoding="utf-8"))["keep_done_days"], 5)
+
 
 if __name__ == "__main__":
     unittest.main()
