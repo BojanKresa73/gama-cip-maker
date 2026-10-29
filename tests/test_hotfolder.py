@@ -117,6 +117,36 @@ class HotFolder(unittest.TestCase):
         self.assertEqual(by_file["Pogrešan format.pdf"]["Status"], "GREŠKA")
         self.assertRegex(by_file[latin_name]["Cyan %"], r"^\d+,\d$")
 
+    def test_activity_notifications_and_views(self):
+        """The window learns about finished hot-folder jobs, Windows gets a notification, the job has plate views."""
+        notes = []
+        self.app.notify = lambda title, text: notes.append((title, text))
+        eur = Path(self.folders["Eurodream"]["base"])
+        build(eur / "izvor.tmp", 745, 605)
+        os.replace(eur / "izvor.tmp", eur / "Ulaz" / "Шабац 26520.pdf")
+        self.assertTrue(wait(lambda: any(e["status"] == "OK" for e in self.app.hot.activity(0)["events"])), self.app.hot.status())
+        done = next(e for e in self.app.hot.activity(0)["events"] if e["status"] == "OK")
+        self.assertEqual(done["printshop"], "Eurodream")
+        self.assertEqual(done["outputs"], ["Sabac_26520.p0001.PPF"])
+        self.assertEqual(Path(done["out_dir"]).name, "PPF")
+        self.assertEqual(self.app.hot.activity(done["seq"])["events"], [])
+        self.assertEqual(notes[0][0], "Eurodream: gotovo")
+        self.assertIn("Шабац 26520.pdf", notes[0][1])
+        job = self.app.jobs.get(done["job_id"])
+        page = job["result"]["pages"][0]
+        for c in page["channels"]:
+            self.assertTrue((self.app.jobs.path(job["id"]) / "results" / c["view"]).exists(), c["name"])
+        folder = next(f for f in self.app.hot.status()["folders"] if f["printshop"] == "Eurodream")
+        self.assertEqual(folder["today_ok"], 1)
+        self.assertEqual(folder["last"]["file"], "Шабац 26520.pdf")
+        # the activity list survives a restart of the program
+        self.app.hot.stop.set()
+        again = App(self.app.root)
+        try:
+            self.assertTrue(any(e["file"] == "Шабац 26520.pdf" and e["status"] == "OK" for e in again.hot.status()["events"]))
+        finally:
+            again.hot.stop.set()
+
     def test_resume_after_crash(self):
         """A PDF left in .u_obradi by a closed program is processed again on the next start."""
         bir = Path(self.folders["Birograf"]["base"])

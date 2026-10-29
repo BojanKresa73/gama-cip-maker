@@ -177,6 +177,17 @@ def ppf_plane(gray, mm, p, dpi, factor=3, origin=None):
     return big.resize(size, Image.Resampling.BOX)
 
 
+VIEW_MAX_PIXELS = 4_000_000
+
+
+def view_dpi(p, wanted=50):
+    """Resolution of the on-screen separation views: 50 dpi, lower for very large plates."""
+    width_in = p["zone_count"] * p["zone_width_mm"] / 25.4
+    height_in = p["area_height_mm"] / 25.4
+    limit = (VIEW_MAX_PIXELS / max(width_in * height_in, 1e-6)) ** 0.5
+    return max(10, min(wanted, int(limit)))
+
+
 def spot_colors(log):
     colors = dict(PROCESS_RGB)
     for name, c, m, y, k in re.findall(r'%%SeparationColor: "(.*?)" 100% ink = (\d+) (\d+) (\d+) (\d+) CMYK', log):
@@ -238,6 +249,11 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
         thumb_name = f"{stem}.sep-{n + 1}.png"
         thumb.save(target / thumb_name)
         channel = {"name": name, "values": values.tolist(), "mean": float(values.mean()), "max": float(values.max()), "rgb": rgb, "thumbnail": thumb_name}
+        # Plate view for the program's separation viewer: same zone-area geometry as the composite.
+        view = make_preview(preview.convert("L"), mm, p, view_dpi(p))
+        channel["view"] = f"{stem}.view-{n + 1}.png"
+        view.save(target / channel["view"], optimize=False, compress_level=3)
+        del view
         if p.get("ppf_enabled"):
             plane = ppf_plane(preview.convert("L"), mm, p, p.get("ppf_dpi", 50.8))
             channel["ppf"] = f"{stem}.ppf-{n + 1}.png"
@@ -264,6 +280,7 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
     thumbnail = stem + ".thumb.png"
     preview.save(target / thumbnail)
     page = {"stem": stem, "source_mm": list(source_mm), "oriented_mm": list(mm), "channels": channels, "warnings": warnings, "png": png, "preview_size": size, "thumbnail": thumbnail}
+    page["view_dpi"] = view_dpi(p)
     if "ink_box_mm" in p:
         page["ink_box_mm"] = p["ink_box_mm"]
         page["placement_mm"] = list(placement(mm, p))

@@ -67,7 +67,9 @@ class HotFolders:
         self.settings_path = Path(app.root) / "settings.json"
         self.lock = threading.RLock()
         self.seen = {}           # path -> (size, mtime)
-        self.events = deque(maxlen=60)
+        self.events_path = Path(app.root) / "hot_events.json"
+        self.events = deque(self._load_events(), maxlen=300)
+        self.seq = max((e.get("seq", 0) for e in self.events), default=0)
         self.stop = threading.Event()
         self.settings = self._load()
         self.thread = threading.Thread(target=self._loop, daemon=True, name="cip-hotfolder")
@@ -79,6 +81,20 @@ class HotFolders:
             return json.loads(self.settings_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return {}
+
+    def _load_events(self):
+        try:
+            return json.loads(self.events_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return []
+
+    def _save_events(self):
+        try:
+            tmp = self.events_path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(list(self.events), ensure_ascii=False), encoding="utf-8")
+            os.replace(tmp, self.events_path)
+        except OSError:
+            LOG.exception("Evidencija hot foldera nije sačuvana")
 
     def _save(self):
         tmp = self.settings_path.with_suffix(".tmp")
@@ -156,16 +172,29 @@ class HotFolders:
 
     def status(self):
         layout = self.layout() if self.root else {}
+        now = datetime.datetime.now()
+        midnight = now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
         folders = []
         for item in layout.values():
             pending = 0
             if item["in"].exists():
                 pending = sum(1 for f in item["in"].iterdir() if f.is_file() and f.suffix.lower() == ".pdf")
+            mine = [e for e in self.events if e.get("profile_id") == item["profile"]["id"]]
+            today = [e for e in mine if e["time"] >= midnight]
+            last = next((e for e in reversed(mine) if e["status"] != "u obradi"), None)
             folders.append({"profile": item["profile"]["name"], "printshop": item["profile"]["printshop"],
+                            "profile_id": item["profile"]["id"],
                             "in": str(item["in"]), "out": str(item["out"]), "base": str(item["base"]),
-                            "output": output_dir_name(item["profile"]), "pending": pending})
-        return {"root": str(self.root) if self.root else None, "enabled": self.enabled,
-                "folders": sorted(folders, key=lambda f: f["base"].lower()), "events": list(self.events)[::-1]}
+                            "output": output_dir_name(item["profile"]), "pending": pending,
+                            "working": sum(1 for e in mine if e["status"] == "u obradi"),
+                            "today_ok": sum(1 for e in today if e["status"] == "OK"),
+                            "today_errors": sum(1 for e in today if e["status"] == "GREŠKA"), "last": last})
+        return {"root": str(self.root) if self.root else None, "enabled": self.enabled, "seq": self.seq,
+                "folders": sorted(folders, key=lambda f: f["base"].lower()), "events": list(self.events)[::-1][:100]}
+
+    def activity(self, since=0):
+        """Events newer than `since` (for the window's live updates)."""
+        return {"seq": self.seq, "events": [e for e in self.events if e.get("seq", 0) > since]}
 
     # ---------------------------------------------------------------- scanning
     def _loop(self):
@@ -230,7 +259,7 @@ class HotFolders:
             data = claimed.read_bytes()
             job = self.app.submit(original, data, pid, hot={"profile_id": pid, "file": str(claimed), "name": original,
                                                              "base": str(item["base"])})
-            self._event(original, item["profile"], "u obradi", "")
+            self._event(original, item["profile"], "u obradi", "Obrada u toku…", job_id=job["id"])
             LOG.info("Hot folder: %s -> posao %s", original, job["id"])
         except Exception as exc:  # noqa: BLE001
             self._fail(item, claimed, original, str(exc), item["profile"])
@@ -258,7 +287,8 @@ class HotFolders:
             return
         item["done"].mkdir(parents=True, exist_ok=True)
         os.replace(claimed, unique(item["done"] / original))
-        self._event(original, profile, "OK", ", ".join(made) + ("" if not warnings else " · " + " ".join(warnings)))
+        self._event(original, profile, "OK", ", ".join(made) + ("" if not warnings else " · " + " ".join(warnings)),
+                    job_id=job["id"], outputs=made, out_dir=str(item["out"]))
         self._journal(original, profile, job, "OK", made, warnings)
         source = self.app.jobs.path(job["id"]) / "source.pdf"
         source.unlink(missing_ok=True)   # the original lives in Obradjeno
@@ -305,15 +335,30 @@ class HotFolders:
                 "Ispravite PDF ili profil, pa fajl ponovo ubacite u Ulaz.\r\n", encoding="utf-8-sig")
         except OSError:
             LOG.exception("Premeštanje u Greske nije uspelo")
-        self._event(original, profile, "GREŠKA", reason)
+        self._event(original, profile, "GREŠKA", reason, job_id=(job or {}).get("id") or self._job_for(original),
+                    out_dir=str(item["errors"]))
         self._journal(original, profile, job, "GREŠKA", [], [reason])
 
-    def _event(self, name, profile, status, message):
-        for old in list(self.events):   # replace the "u obradi" line of the same file with its outcome
-            if old["file"] == name and old["status"] == "u obradi" and status != "u obradi":
-                self.events.remove(old)
-        self.events.append({"time": time.time(), "file": name, "printshop": profile.get("printshop"),
-                            "profile": profile.get("name"), "status": status, "message": message[:500]})
+    def _job_for(self, name):
+        return next((e.get("job_id") for e in reversed(self.events) if e["file"] == name and e["status"] == "u obradi"), None)
+
+    def _event(self, name, profile, status, message, job_id=None, outputs=None, out_dir=None):
+        with self.lock:
+            for old in list(self.events):   # replace the "u obradi" line of the same file with its outcome
+                if old["file"] == name and old["status"] == "u obradi" and status != "u obradi":
+                    self.events.remove(old)
+            self.seq += 1
+            self.events.append({"seq": self.seq, "time": time.time(), "file": name, "printshop": profile.get("printshop"),
+                                "profile": profile.get("name"), "profile_id": profile.get("id"), "status": status,
+                                "message": message[:500], "job_id": job_id, "outputs": outputs or [], "out_dir": out_dir})
+            self._save_events()
+        if status in ("OK", "GREŠKA") and self.app.notify:
+            title = f"{profile.get('printshop')}: {'gotovo' if status == 'OK' else 'GREŠKA'}"
+            text = f"{name}\n" + (f"→ {', '.join(o for o in (outputs or []) if not o.endswith('.PNG'))}" if status == "OK" else message[:180])
+            try:
+                self.app.notify(title, text)
+            except Exception:  # noqa: BLE001 - a notification must never break processing
+                LOG.exception("Obaveštenje nije prikazano")
 
     def _journal(self, name, profile, job, status, made, notes):
         """dnevnik.csv: UTF-8 with BOM and ';' so Excel in Serbian locale opens it with the letters intact."""

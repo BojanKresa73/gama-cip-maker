@@ -284,6 +284,12 @@ def main():
         window.restore()
 
     app.on_show = bring_to_front
+
+    def notify(title, text):
+        if icon is not None:
+            icon.notify(text, title)
+
+    app.notify = notify
     window.events.closing += on_closing
     if testing:
         gui_test(window, sys.argv[sys.argv.index("--guitest") + 1])

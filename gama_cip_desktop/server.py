@@ -42,8 +42,9 @@ def result_files(result):
             if page.get(key):
                 names.add(page[key])
         for c in page.get("channels", []):
-            if c.get("thumbnail"):
-                names.add(c["thumbnail"])
+            for key in ("thumbnail", "view"):
+                if c.get(key):
+                    names.add(c[key])
     return names
 
 
@@ -55,6 +56,7 @@ class App:
         self.token = secrets.token_urlsafe(24)
         self.queue = queue.Queue()
         self.on_show = None   # set by the desktop window: bring the window to the front
+        self.notify = None    # set by the desktop window: Windows notification (title, text)
         self.worker = threading.Thread(target=self._work, daemon=True, name="cip-worker")
         self.worker.start()
         for job in self.jobs.all():
@@ -200,6 +202,8 @@ class Handler(BaseHTTPRequestHandler):
                 if method == "POST":
                     body = json.loads(self.body() or b"{}")
                     return self.send_json(app.hot.configure(body.get("root"), body.get("enabled")))
+            if p == ["activity"] and method == "GET":
+                return self.send_json(app.hot.activity(int((query.get("since") or ["0"])[0] or 0)))
             if p == ["show"] and method == "POST":
                 if app.on_show:
                     app.on_show()

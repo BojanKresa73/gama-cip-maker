@@ -24,7 +24,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .brand .wm b{font-weight:800}.brand .wm span{font-weight:300;padding-left:7px;margin-left:7px;border-left:3px solid var(--cyan)}
 .brand .sub{margin-top:8px;font-size:11px;letter-spacing:.42em;color:var(--cyan);font-weight:700}
 .nav{display:flex;flex-direction:column;gap:4px;position:relative}
-.nav button{all:unset;cursor:pointer;display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:8px;color:#c5cfe8;font-weight:500}
+.nav button{all:unset;cursor:pointer;display:flex;gap:10px;align-items:center;box-sizing:border-box;padding:10px 12px;border-radius:8px;color:#c5cfe8;font-weight:500}
 .nav button:hover{background:var(--navy-2);color:#fff}
 .nav button.on{background:var(--navy-3);color:#fff;box-shadow:inset 3px 0 0 var(--cyan)}
 .nav svg{width:18px;height:18px;flex:none}
@@ -101,6 +101,34 @@ legend{font-weight:700;font-size:13px;padding:0 6px;color:var(--ink)}
 .empty{padding:40px 20px;text-align:center;color:var(--ink-3)}
 .ruler{display:grid;font-size:10px;font-weight:650;color:var(--blue-ink);text-align:center;margin-bottom:3px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .ruler span{overflow:hidden}
+.badge{margin-left:auto;background:var(--cyan);color:var(--navy);font-size:11px;font-weight:800;border-radius:999px;padding:1px 7px;min-width:18px;text-align:center;display:none}
+.toast .act{all:unset;cursor:pointer;margin-left:12px;font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.viewer{border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
+.viewer.full{position:fixed;inset:14px;z-index:20;box-shadow:0 20px 60px rgba(12,22,48,.35);display:flex;flex-direction:column}
+.vbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px;border-bottom:1px solid var(--line);background:#f8fafd}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden;background:#fff}
+.seg button{all:unset;cursor:pointer;padding:6px 11px;font-size:12.5px;font-weight:650;color:var(--ink-2)}
+.seg button+button{border-left:1px solid var(--line-2)}
+.seg button.on{background:var(--navy);color:#fff}
+.vchips{display:flex;gap:6px;flex-wrap:wrap;flex-basis:100%;order:5}
+.vbar .grow{flex:1}
+.vchip{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid var(--line-2);font-size:12.5px;font-weight:650;background:#fff;user-select:none}
+.vchip.off{opacity:.4;text-decoration:line-through}
+.vchip small{font-weight:500;color:var(--ink-3)}
+.vstage{position:relative;overflow:auto;max-height:68vh;background:repeating-conic-gradient(#eef1f6 0 25%,#fff 0 50%) 0 0/16px 16px}
+.viewer.full .vstage{max-height:none;flex:1}
+.vinner{position:relative;margin:0 auto}
+.vinner canvas,.vinner img{display:block;width:100%;height:auto;image-rendering:auto}
+.vinner svg.grid{position:absolute;left:0;right:0;bottom:0;width:100%;pointer-events:none}
+.vtip{position:fixed;z-index:30;pointer-events:none;background:rgba(12,22,48,.94);color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.5;display:none;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.vtip b{font-size:12.5px}.vtip .r{display:flex;gap:8px;align-items:center;justify-content:space-between}
+.vtip .sw{width:10px;height:10px}
+.vfoot{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-3);padding:8px 10px;border-top:1px solid var(--line)}
+.fcard{display:grid;grid-template-columns:1fr auto;gap:10px 16px;padding:14px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.fcard .stats{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);grid-column:1/-1;align-items:center}
+.fcard .stats b{color:var(--ink)}
+.evrow{display:grid;grid-template-columns:72px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fff}
+.evrow.click{cursor:pointer}.evrow.click:hover{border-color:var(--blue)}
 .legend{display:flex;gap:14px;font-size:12px;color:var(--ink-3);margin-top:6px}
 </style>
 </head>
@@ -110,7 +138,7 @@ legend{font-weight:700;font-size:13px;padding:0 6px;color:var(--ink)}
     <div class="brand"><div class="wm"><b>GAMA</b><span>UNITED</span></div><div class="sub">CIP MAKER</div></div>
     <nav class="nav">
       <button data-view="jobs" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>Obrada</button>
-      <button data-view="hot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/><path d="M12 12v5M9.5 14.5 12 17l2.5-2.5"/></svg>Hot folderi</button>
+      <button data-view="hot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h6l2 2h10v10H3z"/><path d="M12 12v5M9.5 14.5 12 17l2.5-2.5"/></svg>Hot folderi<span class="badge" id="hotbadge"></span></button>
       <button data-view="profiles"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Profili mašina</button>
     </nav>
     <div class="foot">
@@ -140,11 +168,16 @@ async function api(method, path, body, raw){
   if (!r.ok) throw new Error(data.error || ("Greška " + r.status));
   return data;
 }
-function toast(msg, bad){ const t=$("#toast"); t.textContent=msg; t.className="toast"+(bad?" bad":""); t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none", bad?7000:3500); }
+function toast(msg, bad, action, onAction){
+  const t=$("#toast"); t.textContent=msg; t.className="toast"+(bad?" bad":"");
+  if (action){ const b=document.createElement("button"); b.className="act"; b.textContent=action; b.onclick=()=>{ t.style.display="none"; onAction(); }; t.appendChild(b); }
+  t.style.display="block"; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display="none", action?9000:(bad?7000:3500));
+}
 const fileUrl = (job, name) => `/api/jobs/${job}/files/${encodeURIComponent(name)}?t=${encodeURIComponent(TOKEN)}`;
 const rgbCss = rgb => `rgb(${rgb.map(v=>Math.round(v*255)).join(",")})`;
 
-const S = {view:"jobs", profiles:[], jobs:[], job:null, page:0, sel:{}, profile:null, poll:null, exportForm:{}, hot:null, hotPoll:null};
+const S = {view:"jobs", profiles:[], jobs:[], job:null, page:0, sel:{}, profile:null, poll:null, exportForm:{}, hot:null, hotPoll:null,
+           seq:0, unseen:0, vw:{mode:"sep", hidden:new Set(), zoom:"fit", full:false}, planes:{}};
 window.__cipState = S;
 
 /* ---------------- startup ---------------- */
@@ -161,14 +194,37 @@ async function init(){
     if (!st.ghostscript.ok) toast(st.ghostscript.error, true);
   }catch(e){ toast(e.message, true); }
   await loadProfiles(); await loadJobs(); await loadHot();
+  S.seq = (S.hot && S.hot.seq) || 0;
+  setInterval(pollActivity, 3000);
   if (S.hot && !S.hot.root) return go("hot");   // first start: ask where the hot folders go
   render();
+}
+function badge(){ const b=$("#hotbadge"); b.textContent=S.unseen; b.style.display=S.unseen?"inline-block":"none"; }
+async function openHotJob(id){ if (!id) return; go("jobs"); await openJob(id); }
+async function pollActivity(){
+  let a; try{ a = await api("GET","/api/activity?since="+S.seq); }catch(e){ return; }
+  if (!a.events.length) return;
+  S.seq = a.seq;
+  const done = a.events.filter(e=>e.status!=="u obradi");
+  const last = done[done.length-1];
+  if (last){
+    const ok = last.status==="OK";
+    toast(`${last.printshop}: ${last.file} — ${ok ? "gotovo (" + (last.outputs||[]).filter(o=>!/\.PNG$/.test(o)).join(", ") + ")" : "GREŠKA"}`, !ok, last.job_id ? "Otvori" : null, ()=>openHotJob(last.job_id));
+    if (S.view!=="hot"){ S.unseen += done.length; badge(); }
+  }
+  await loadJobs();
+  if (S.view==="jobs"){ const h=$("#hist"); if (h) h.innerHTML = histHtml(); }
+  if (S.view==="hot"){ await loadHot(); renderHot(); }
 }
 async function loadHot(){ try{ S.hot = await api("GET","/api/hot"); }catch(e){ S.hot = null; } }
 async function loadProfiles(){ S.profiles = (await api("GET","/api/profiles")).profiles; }
 async function loadJobs(){ S.jobs = (await api("GET","/api/jobs")).jobs; }
 function go(v){ S.view=v; document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("on", b.dataset.view===v)); render(); }
-function render(){ clearTimeout(S.hotPoll); S.view==="jobs" ? renderJobs() : S.view==="hot" ? renderHot() : renderProfiles(); }
+function render(){
+  clearTimeout(S.hotPoll);
+  if (S.view==="hot"){ S.unseen=0; badge(); renderHot(); loadHot().then(()=>{ if (S.view==="hot") renderHot(); }); return; }
+  S.view==="jobs" ? renderJobs() : renderProfiles();
+}
 
 /* ---------------- hot folders ---------------- */
 const hasDialogs = () => !!(window.pywebview && window.pywebview.api && window.pywebview.api.choose_folder);
@@ -200,27 +256,39 @@ function renderHot(){
     $("#hsave").onclick = () => saveRoot($("#hroot").value);
     return;
   }
-  const ev = (h.events||[]).map(e=>{ const d=new Date(e.time*1000); const c = e.status==="OK"?"ok":e.status==="GREŠKA"?"bad":"info";
-    return `<div class="sep" style="grid-template-columns:120px 1fr 90px;gap:10px"><span class="small muted">${d.toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</span>
-      <div><b>${esc(e.file)}</b> <span class="small muted">· ${esc(e.printshop)}</span><div class="small muted" style="word-break:break-word">${esc(e.message)}</div></div><span class="chip ${c}" style="justify-self:end">${esc(e.status)}</span></div>`; }).join("");
+  const when = t => { const d=new Date(t*1000), today=new Date().toDateString()===d.toDateString();
+    return (today ? "" : d.toLocaleDateString("sr-RS",{day:"numeric",month:"numeric"})+" ") + d.toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit"}); };
+  const ev = (h.events||[]).slice(0,40).map(e=>{ const c = e.status==="OK"?"ok":e.status==="GREŠKA"?"bad":"info";
+    return `<div class="evrow ${e.job_id && e.status!=="u obradi"?"click":""}" ${e.job_id && e.status!=="u obradi"?`data-job="${e.job_id}" title="Otvori pregled i separacije"`:""}>
+      <span class="small muted">${when(e.time)}</span>
+      <div style="min-width:0"><b style="word-break:break-word">${esc(e.file)}</b> <span class="small muted">· ${esc(e.printshop)}</span>
+        <div class="small muted" style="word-break:break-word">${e.status==="u obradi"?'<span class="spin" style="width:11px;height:11px;vertical-align:-1px"></span> ':""}${esc(e.message)}</div></div>
+      <div class="row" style="gap:8px">${e.out_dir && e.status!=="u obradi"?`<button class="btn ghost" style="padding:5px 10px;font-size:12px" data-open="${esc(e.out_dir)}">${e.status==="OK"?"Folder":"Greske"}</button>`:""}<span class="chip ${c}">${esc(e.status)}</span></div></div>`; }).join("");
   $("#main").innerHTML = `<h1>Hot folderi</h1><p class="lead">Ubacite PDF u <b>Ulaz</b> — program pravi XML ili PPF i PDF premešta u <b>Obradjeno</b>. Ako nešto ne valja, PDF ide u <b>Greske</b> sa objašnjenjem.</p>
     <div class="card" style="margin-bottom:16px"><div class="jobhead" style="margin:0"><div>
       <div class="small muted">Glavni folder</div><div class="mono" style="font-size:14px;word-break:break-all">${esc(h.root)}</div>
       <div class="small muted" style="margin-top:6px">Broj posla (Job ID) uzima se iz imena PDF-a: prvi samostalni broj od bar 4 cifre (npr. <span class="mono">…_26527_…</span>). Dnevnik svih poslova: <span class="mono">dnevnik.csv</span>.</div></div>
       <div class="row"><label class="check"><input type="checkbox" id="hon" ${h.enabled?"checked":""}>Uključeno</label>
         <button class="btn ghost" id="hopen">Otvori</button><button class="btn ghost" id="hchange">Promeni folder</button></div></div></div>
-    <div class="seps" style="margin:0 0 18px">${(h.folders||[]).map(f=>`<div class="sep" style="grid-template-columns:1fr auto auto;gap:14px">
-        <div><div class="nm">${esc(f.printshop)} <span class="small muted" style="font-weight:400">· ${esc(f.profile)}</span></div>
-        <div class="small muted mono" style="word-break:break-all">${esc(f.base)}</div></div>
-        <div class="small" style="text-align:right">Ulaz → <b>${esc(f.output)}</b><br><span class="${f.pending?"":"muted"}">${f.pending ? f.pending + " PDF čeka" : "prazno"}</span></div>
-        <div class="row"><button class="btn ghost" data-open="${esc(f.in)}">Ulaz</button><button class="btn ghost" data-open="${esc(f.out)}">${esc(f.output)}</button></div></div>`).join("")
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px;margin:0 0 20px">${(h.folders||[]).map(f=>{
+        const l=f.last; const lc = l ? (l.status==="OK"?"ok":"bad") : "";
+        return `<div class="fcard">
+        <div style="min-width:0"><div class="nm" style="font-size:15px;font-weight:700">${esc(f.printshop)} <span class="small muted" style="font-weight:400">· Ulaz → ${esc(f.output)}</span></div>
+          <div class="small muted mono" style="word-break:break-all">${esc(f.base)}</div></div>
+        <div class="row" style="gap:6px;align-items:flex-start"><button class="btn ghost" style="padding:6px 10px" data-open="${esc(f.in)}">Ulaz</button><button class="btn ghost" style="padding:6px 10px" data-open="${esc(f.out)}">${esc(f.output)}</button></div>
+        <div class="stats">
+          ${f.working||f.pending ? `<span><span class="spin" style="width:11px;height:11px;vertical-align:-1px"></span> <b>${f.working+f.pending}</b> u radu</span>` : `<span class="chip">čeka PDF</span>`}
+          <span>Danas: <b>${f.today_ok}</b> gotovo${f.today_errors?` · <b style="color:var(--bad)">${f.today_errors}</b> greška`:""}</span>
+          ${l ? `<span style="min-width:0;flex-basis:100%">Poslednji: <a href="#" data-job="${l.job_id||""}" style="color:var(--ink);font-weight:600">${esc(l.file)}</a> · ${when(l.time)} <span class="chip ${lc}">${esc(l.status)}</span></span>` : ""}
+        </div></div>`; }).join("")
       || `<div class="note warn">Nijedan profil nije spreman za hot folder. Profil mora biti aktivan, potpun i sa dozvoljenim izvozom.</div>`}</div>
-    <h2 style="font-size:15px;margin:0 0 8px">Poslednji poslovi</h2>
+    <h2 style="font-size:15px;margin:0 0 8px">Poslednji poslovi <span class="small muted" style="font-weight:400">— kliknite na posao za pregled po separacijama</span></h2>
     <div class="seps" style="margin:0">${ev || `<div class="muted small">Još nema poslova iz hot foldera.</div>`}</div>`;
   $("#hon").onchange = async e => { try{ S.hot = await api("POST","/api/hot",{enabled:e.target.checked}); renderHot(); }catch(x){ toast(x.message,true); } };
   $("#hopen").onclick = () => openPath(h.root);
   $("#hchange").onclick = async () => { const p = hasDialogs() ? await pickFolder() : prompt("Nova putanja glavnog foldera:", h.root); if (p) saveRoot(p); };
-  document.querySelectorAll("[data-open]").forEach(b => b.onclick = () => openPath(b.dataset.open));
+  document.querySelectorAll("[data-open]").forEach(b => b.onclick = e => { e.stopPropagation(); openPath(b.dataset.open); });
+  document.querySelectorAll("[data-job]").forEach(b => b.onclick = e => { e.preventDefault(); if (b.dataset.job) openHotJob(b.dataset.job); });
   S.hotPoll = setTimeout(async()=>{ if (S.view!=="hot") return; await loadHot(); renderHot(); }, 3000);
 }
 
@@ -265,8 +333,8 @@ function histHtml(){
   if (!S.jobs.length) return `<div class="muted small" style="padding:6px 4px">Još nema poslova.</div>`;
   return `<div class="small muted" style="padding:6px 4px 0;font-weight:600">Raniji poslovi</div>` + S.jobs.map(j=>{
     const [l,c]=STATUS[j.status]||[j.status,""]; const d=new Date(j.created*1000);
-    return `<button data-id="${j.id}" class="${S.job&&S.job.id===j.id?"on":""}"><div class="t" title="${esc(j.filename)}">${esc(j.filename)}</div>
-      <div class="m"><span>${d.toLocaleDateString("sr-RS")} ${d.toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit"})} · ${esc(j.profile.name.split("·")[0].trim())}${j.hot?" · hot folder":""}</span><span class="chip ${c}">${l}</span></div></button>`; }).join("");
+    return `<button data-id="${j.id}" class="${S.job&&S.job.id===j.id?"on":""}"><div class="t" title="${esc(j.filename)}">${j.hot?'<span class="chip info" style="margin-right:6px;font-size:10.5px;padding:1px 6px">HOT</span>':""}${esc(j.filename)}</div>
+      <div class="m"><span>${d.toLocaleDateString("sr-RS")} ${d.toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit"})} · ${esc(j.profile.name.split("·")[0].trim())}</span><span class="chip ${c}">${l}</span></div></button>`; }).join("");
 }
 async function upload(f){
   const prof = $("#prof").value;
@@ -279,7 +347,7 @@ async function upload(f){
   }catch(e){ toast(e.message, true); renderJobs(); }
 }
 async function openJob(id){
-  try{ S.job = (await api("GET","/api/jobs/"+id)).job; S.page=0; S.sel={}; S.exportForm={}; renderJobs(); watch(); }catch(e){ toast(e.message,true); }
+  try{ S.job = (await api("GET","/api/jobs/"+id)).job; S.page=0; S.sel={}; S.exportForm={}; S.vw.hidden=new Set(); S.vw.mode="sep"; renderJobs(); watch(); }catch(e){ toast(e.message,true); }
 }
 function watch(){
   clearTimeout(S.poll);
@@ -302,9 +370,10 @@ function renderDetail(){
   } else body = resultHtml(j);
   el.innerHTML = `<div class="card">
     <div class="jobhead"><div><h2>${esc(j.filename)}</h2>
-      <div class="small muted" style="margin-top:4px">${esc(j.profile.name)} <span class="chip ${vc}">${vl}</span></div></div>
+      <div class="small muted" style="margin-top:4px">${esc(j.profile.name)} <span class="chip ${vc}">${vl}</span>${j.hot?` <span class="chip info">iz hot foldera</span> <a href="#" id="hotdir" class="small">otvori folder</a>`:""}</div></div>
       <div class="row"><span class="chip ${c}">${l}</span>${["queued","processing"].includes(j.status)?"":`<button class="btn ghost" id="del" title="Obriši posao">Obriši</button>`}</div></div>
     ${body}</div>`;
+  $("#hotdir") && ($("#hotdir").onclick = e => { e.preventDefault(); openPath(j.hot.base); });
   $("#retry") && ($("#retry").onclick = async()=>{ try{ S.job=(await api("POST",`/api/jobs/${j.id}/retry`)).job; await loadJobs(); renderJobs(); watch(); }catch(e){toast(e.message,true);} });
   $("#del") && ($("#del").onclick = async()=>{ if(!confirm("Obrisati ovaj posao i njegove rezultate?")) return; try{ await api("DELETE","/api/jobs/"+j.id); S.job=null; await loadJobs(); renderJobs(); }catch(e){toast(e.message,true);} });
   if (j.status==="completed") bindResult(j);
@@ -335,9 +404,9 @@ function resultHtml(j){
   const jobId = f.job_id ?? (p.job_id || ""), side = f.side ?? (p.side || "Front");
   const canExport = j.profile.export_enabled;
   return `${tabs}
-    ${ruler}<div class="preview"><img src="${fileUrl(j.id,page.thumbnail)}" alt="Pregled ploče"><svg viewBox="0 0 100 100" preserveAspectRatio="none">${grid}</svg></div>
-    <div class="legend"><span>${p.zone_count} zona × ${String(p.zone_width_mm).replace(".",",")} mm</span><span>PDF ${page.source_mm.map(v=>v.toFixed(1).replace(".",",")).join(" × ")} mm</span><span>${esc(j.result.renderer)}, ${j.result.render_dpi} → ${j.result.coverage_dpi} dpi</span></div>
+    ${viewerHtml(j, page, p, ruler, grid)}
     ${warnings}
+    <h3 style="font-size:14px;margin:18px 0 0">Separacije u izvozu <span class="small muted" style="font-weight:400">— štiklirane idu u ${outputs(p).join(" + ")}</span></h3>
     <div class="seps">${seps}</div>
     <div class="export">
       ${p.xml_enabled !== false ? `<label class="f">Job ID<input type="text" id="xjob" maxlength="64" value="${esc(jobId)}"></label>` : `<div class="small muted" style="align-self:center">PPF dobija ime po PDF fajlu i broju strane.</div>`}
@@ -350,6 +419,7 @@ function resultHtml(j){
 }
 function bindResult(j){
   const page = j.result.pages[S.page], sel = selFor(page);
+  bindViewer(j, page, j.result.profile);
   document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{ S.page=+b.dataset.page; renderDetail(); });
   document.querySelectorAll("[data-ch]").forEach(cb=>cb.onchange=()=>{ cb.checked?sel.add(cb.dataset.ch):sel.delete(cb.dataset.ch); cb.closest(".sep").classList.toggle("off",!cb.checked); });
   $("#xjob") && ($("#xjob").oninput = e => S.exportForm.job_id = e.target.value);
@@ -373,6 +443,114 @@ function bindResult(j){
     btn.disabled=false; btn.textContent="Izvezi " + outputs(j.result.profile).join(" + ");
   };
 }
+
+/* ---------------- separation viewer ---------------- */
+const hasViews = page => page.channels.every(c => c.view);
+const inkCss = c => c.name==="Yellow" ? "#f2d600" : rgbCss(c.rgb);
+function viewerHtml(j, page, p, ruler, grid){
+  const v = S.vw, views = hasViews(page);
+  if (!views) v.mode = "comp";
+  const chips = page.channels.map(c=>`<button class="vchip ${v.hidden.has(c.name)?"off":""}" data-vch="${esc(c.name)}" title="Klik: uključi/isključi · dupli klik: samo ova">
+      <span class="sw" style="background:${inkCss(c)}"></span>${esc(c.name)} <small>${pct(c.mean)}</small></button>`).join("");
+  return `<div class="viewer ${v.full?"full":""}" id="viewer">
+    <div class="vbar">
+      <div class="seg">${views?`<button data-vmode="sep" class="${v.mode==="sep"?"on":""}">Separacije</button>`:""}<button data-vmode="comp" class="${v.mode==="comp"?"on":""}">Kompozit</button></div>
+      <div class="vchips" style="${v.mode==="sep"?"":"visibility:hidden"}">${chips}<button class="vchip" data-vall="1" title="Prikaži sve">Sve</button></div>
+      <span class="grow"></span>
+      <div class="seg"><button data-zoom="fit" class="${v.zoom==="fit"?"on":""}">Ceo tabak</button><button data-zoom="1" class="${v.zoom==="1"?"on":""}">100%</button><button data-zoom="2" class="${v.zoom==="2"?"on":""}">200%</button></div>
+      <div class="seg"><button id="vfull">${v.full?"Zatvori":"Ceo ekran"}</button></div>
+    </div>
+    <div class="vstage" id="vstage"><div class="vinner" id="vinner">${ruler}
+      <div style="position:relative">
+        ${v.mode==="sep" ? `<canvas id="vcanvas"></canvas>` : `<img id="vcomp" src="${fileUrl(j.id,page.thumbnail)}" alt="Kompozit">`}
+        <svg class="grid" viewBox="0 0 100 100" preserveAspectRatio="none" style="top:0;height:100%">${grid}</svg>
+      </div></div></div>
+    <div class="vfoot"><span>${p.zone_count} zona × ${String(p.zone_width_mm).replace(".",",")} mm</span><span>PDF ${page.source_mm.map(x=>x.toFixed(1).replace(".",",")).join(" × ")} mm</span>
+      <span>${esc(j.result.renderer)}, ${j.result.render_dpi} → ${j.result.coverage_dpi} dpi</span>
+      <span>${views ? "Pređite mišem preko tabaka za pokrivenost zone i boje na tom mestu." : "Pregled po separacijama postoji za poslove obrađene u verziji 1.2 i novijim — pokrenite obradu ponovo."}</span></div>
+    <div class="vtip" id="vtip"></div></div>`;
+}
+async function loadPlanes(j, page){
+  const key = j.id + ":" + page.page;
+  if (S.planes[key]) return S.planes[key];
+  const planes = await Promise.all(page.channels.map(c => new Promise((ok, bad) => {
+    const im = new Image(); im.onload = () => {
+      const cv = document.createElement("canvas"); cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+      const cx = cv.getContext("2d", {willReadFrequently:true}); cx.drawImage(im, 0, 0);
+      const d = cx.getImageData(0, 0, cv.width, cv.height).data, g = new Uint8Array(cv.width*cv.height);
+      for (let i=0, k=0; i<g.length; i++, k+=4) g[i] = d[k];
+      ok({name:c.name, rgb:c.name==="Yellow"?[0.95,0.84,0]:c.rgb, w:cv.width, h:cv.height, g});
+    }; im.onerror = bad; im.src = fileUrl(j.id, c.view);
+  })));
+  S.planes = {[key]: planes};   // keep only the open page in memory
+  return planes;
+}
+function composite(canvas, planes, hidden){
+  const w = planes[0].w, h = planes[0].h; canvas.width = w; canvas.height = h;
+  const cx = canvas.getContext("2d"), out = cx.createImageData(w, h), d = out.data, n = w*h;
+  const r = new Float32Array(n).fill(1), gg = new Float32Array(n).fill(1), b = new Float32Array(n).fill(1);
+  for (const pl of planes){
+    if (hidden.has(pl.name)) continue;
+    const [cr, cg, cb] = pl.rgb, g = pl.g;
+    for (let i=0; i<n; i++){ const a = 1 - g[i]/255; if (a > 0){ r[i] *= 1 - a*(1-cr); gg[i] *= 1 - a*(1-cg); b[i] *= 1 - a*(1-cb); } }
+  }
+  for (let i=0, k=0; i<n; i++, k+=4){ d[k]=r[i]*255; d[k+1]=gg[i]*255; d[k+2]=b[i]*255; d[k+3]=255; }
+  cx.putImageData(out, 0, 0);
+}
+function sizeViewer(){
+  const inner = $("#vinner"), stage = $("#vstage"); if (!inner || !stage) return;
+  const media = $("#vcanvas") || $("#vcomp"); if (!media) return;
+  const base = media.tagName === "CANVAS" ? media.width : (media.naturalWidth || 1600);
+  const tall = media.tagName === "CANVAS" ? media.height : (media.naturalHeight || 1200);
+  if (S.vw.zoom === "fit") {   // whole sheet visible: limited by width and by height
+    const availH = (S.vw.full ? stage.clientHeight : window.innerHeight * 0.68) - 26;
+    const w = Math.min(stage.clientWidth, availH * base / Math.max(tall, 1));
+    inner.style.width = Math.max(200, Math.floor(w)) + "px"; return;
+  }
+  inner.style.width = (base * Number(S.vw.zoom)) + "px";
+}
+async function bindViewer(j, page, p){
+  const v = S.vw, tip = $("#vtip");
+  document.querySelectorAll("[data-vmode]").forEach(b=>b.onclick=()=>{ v.mode=b.dataset.vmode; renderDetail(); });
+  document.querySelectorAll("[data-zoom]").forEach(b=>b.onclick=()=>{ v.zoom=b.dataset.zoom; document.querySelectorAll("[data-zoom]").forEach(x=>x.classList.toggle("on",x===b)); sizeViewer(); });
+  $("#vfull").onclick = () => { v.full=!v.full; renderDetail(); };
+  let clickTimer = null;
+  document.querySelectorAll("[data-vch]").forEach(b=>{
+    b.onclick = () => { clearTimeout(clickTimer); clickTimer = setTimeout(()=>{ const n=b.dataset.vch; v.hidden.has(n)?v.hidden.delete(n):v.hidden.add(n); b.classList.toggle("off"); redraw(); }, 220); };
+    b.ondblclick = () => { clearTimeout(clickTimer); v.hidden = new Set(page.channels.map(c=>c.name).filter(n=>n!==b.dataset.vch));
+      document.querySelectorAll("[data-vch]").forEach(x=>x.classList.toggle("off", v.hidden.has(x.dataset.vch))); redraw(); };
+  });
+  const all = document.querySelector("[data-vall]"); if (all) all.onclick = () => { v.hidden = new Set(); document.querySelectorAll("[data-vch]").forEach(x=>x.classList.remove("off")); redraw(); };
+  let planes = null;
+  const canvas = $("#vcanvas");
+  async function redraw(){ if (canvas && planes) composite(canvas, planes, v.hidden); }
+  if (hasViews(page)){
+    try{ planes = await loadPlanes(j, page); }catch(e){ toast("Pregled separacija nije učitan.", true); }
+    if (canvas && planes){ composite(canvas, planes, v.hidden); }
+  }
+  sizeViewer();
+  const comp = $("#vcomp"); if (comp && !comp.complete) comp.onload = sizeViewer;
+  const media = canvas || comp;
+  if (!media) return;
+  const zc = p.zone_count, zoneNo = i => p.reverse_zones ? zc - i : i + 1, valIdx = i => p.reverse_zones ? zc - 1 - i : i;
+  media.onmousemove = e => {
+    const r = media.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+    if (fx<0||fx>=1||fy<0||fy>=1) return tip.style.display="none";
+    const zi = Math.min(zc-1, Math.floor(fx*zc));
+    let rows = page.channels.filter(c=>!v.hidden.has(c.name) || v.mode!=="sep").map(c=>{
+      let here = "";
+      if (planes){ const pl = planes.find(q=>q.name===c.name); const x = Math.floor(fx*pl.w), y = Math.floor(fy*pl.h); here = pct(1 - pl.g[y*pl.w + x]/255); }
+      return `<div class="r"><span><span class="sw" style="background:${inkCss(c)};display:inline-block;margin-right:6px;border-radius:2px"></span>${esc(c.name)}</span><span>zona <b>${pct(c.values[valIdx(zi)])}</b>${here?` · ovde ${here}`:""}</span></div>`;
+    }).join("");
+    tip.innerHTML = `<b>Zona ${zoneNo(zi)}</b>${rows}`;
+    tip.style.display = "block";
+    const tx = Math.min(window.innerWidth - tip.offsetWidth - 10, e.clientX + 16), ty = Math.min(window.innerHeight - tip.offsetHeight - 10, e.clientY + 16);
+    tip.style.left = tx + "px"; tip.style.top = ty + "px";
+  };
+  media.onmouseleave = () => tip.style.display = "none";
+}
+window.addEventListener("resize", sizeViewer);
+document.addEventListener("keydown", e => { if (e.key==="Escape" && S.vw.full){ S.vw.full=false; renderDetail(); } });
 
 /* ---------------- profiles ---------------- */
 const NUM = (k,label,hint,step="0.1") => ({k,label,hint,type:"num",step});

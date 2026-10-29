@@ -161,7 +161,7 @@ class ProfileStore:
 class JobStore:
     """Each job lives in its own folder: source.pdf, job.json and results/."""
 
-    def __init__(self, root, keep=50):
+    def __init__(self, root, keep=100):
         self.folder = Path(root) / "jobs"
         self.folder.mkdir(parents=True, exist_ok=True)
         self.keep = keep
