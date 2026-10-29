@@ -166,7 +166,9 @@ jobs:
             $restarted = (Test-Path $appLog) -and ((Get-Content $appLog -Raw -Encoding utf8) -match "Pokrenut posle ažuriranja")
             $ok = $installed -and $restarted
           }
-          $text = $report + "`n--- instalacija ---`n" + $(if (Test-Path $installLog) { (Get-Content $installLog -Tail 6) -join "`n" } else { "nema loga" }) +
+          $launcher = "$base\podaci\updates\launcher.log"
+          $text = $report + "`n--- pokretač ---`n" + $(if (Test-Path $launcher) { (Get-Content $launcher -Encoding utf8) -join "`n" } else { "nema loga" }) +
+                  "`n--- instalacija ---`n" + $(if (Test-Path $installLog) { (Get-Content $installLog -Tail 6) -join "`n" } else { "nema loga" }) +
                   "`n--- program ---`n" + $(if (Test-Path $appLog) { (Get-Content $appLog -Encoding utf8 -Tail 8) -join "`n" } else { "nema loga" })
           Get-Process GamaCIPMaker -ErrorAction SilentlyContinue | Stop-Process -Force
           Write-Host $text

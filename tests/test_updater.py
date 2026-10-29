@@ -131,6 +131,7 @@ class Updates(unittest.TestCase):
         script = app.updater.launcher_script(r"C:\Users\Đorđe Šćž\AppData\Local\GamaCIP\updates\Setup's.exe", 1234)
         self.assertIn("Wait-Process -Id 1234", script)
         self.assertIn("'C:\\Users\\Đorđe Šćž\\AppData\\Local\\GamaCIP\\updates\\Setup''s.exe'", script)
+        self.assertIn("launcher.log", script)
         self.assertIn("/VERYSILENT", script)
         encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
         self.assertEqual(base64.b64decode(encoded).decode("utf-16-le"), script)

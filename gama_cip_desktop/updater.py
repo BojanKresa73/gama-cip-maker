@@ -196,12 +196,26 @@ class Updater:
 
     def launcher_script(self, installer, pid):
         """PowerShell (UTF-16 encoded command, so Serbian letters in paths are safe):
-        wait until this program has exited, then run the installer silently."""
+        wait until this program has exited, then run the installer silently.
+        Every step is written to updates\\launcher.log for diagnosis."""
         quote = lambda s: "'" + str(s).replace("'", "''") + "'"
         log = Path(installer).with_suffix(".log")
+        trace = Path(installer).parent / "launcher.log"
         args = f"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /LOG=\"{log}\""
-        return (f"Wait-Process -Id {int(pid)} -Timeout 120 -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1; "
-                f"Start-Process -FilePath {quote(installer)} -ArgumentList {quote(args)}")
+        return "\n".join([
+            "$ErrorActionPreference = 'Continue'",
+            f"$trace = {quote(trace)}",
+            "function Note($t) { Add-Content -LiteralPath $trace -Value ((Get-Date -Format 's') + ' ' + $t) -Encoding UTF8 }",
+            "try {",
+            f"  Note 'pokrenut, čekam da se program {int(pid)} zatvori'",
+            f"  Wait-Process -Id {int(pid)} -Timeout 120 -ErrorAction SilentlyContinue",
+            "  Start-Sleep -Seconds 1",
+            f"  $p = Start-Process -FilePath {quote(installer)} -ArgumentList {quote(args)} -PassThru",
+            "  Note ('instaler pokrenut, pid ' + $p.Id)",
+            "  $p.WaitForExit()",
+            "  Note ('instaler završio, kod ' + $p.ExitCode)",
+            "} catch { Note ('GREŠKA: ' + $_.Exception.Message) }",
+        ])
 
     def install(self, force=False):
         """Start the silent installer and close the program. Returns a message for the window."""
@@ -216,13 +230,16 @@ class Updater:
         import base64
         script = self.launcher_script(path, os.getpid())
         encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "DETACHED_PROCESS", 0) \
-            | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        subprocess.Popen(["powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden",
-                          "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
-                         creationflags=flags, close_fds=True)
+        powershell = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+        # CREATE_NO_WINDOW gives PowerShell a hidden console. (DETACHED_PROCESS = no console at all,
+        # which made PowerShell quit before running anything.)
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        child = subprocess.Popen([str(powershell) if powershell.exists() else "powershell.exe", "-NoProfile", "-NonInteractive",
+                                  "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+                                 creationflags=flags, close_fds=True,
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self._set(status="installing")
-        LOG.info("Pokrenuta instalacija verzije %s; program se zatvara", info.get("version"))
+        LOG.info("Pokrenuta instalacija verzije %s (PowerShell pid %s); program se zatvara", info.get("version"), child.pid)
         if self.quit_program:
             threading.Timer(0.5, self.quit_program).start()
         return f"Instaliram verziju {info.get('version')}. Program će se ponovo otvoriti za oko pola minuta."
