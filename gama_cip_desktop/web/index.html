@@ -599,21 +599,32 @@ document.addEventListener("keydown", e => { if (e.key==="Escape" && S.vw.full){ 
 
 /* ---------------- profiles ---------------- */
 const NUM = (k,label,hint,step="0.1") => ({k,label,hint,type:"num",step});
+const isXml = p => p.xml_enabled !== false, isPpf = p => !!p.ppf_enabled;
+// adv: shown only under "Napredno". show: field visible only when it applies to the chosen output.
 const FIELDS = [
   ["Osnovno",[{k:"name",label:"Naziv profila",type:"text",wide:true},{k:"printshop",label:"Štamparija",type:"text"},{k:"machine",label:"Mašina",type:"text"}]],
   ["Ploča i zone boje",[NUM("plate_width_mm","Širina ploče (mm)"),NUM("plate_height_mm","Visina ploče (mm)"),NUM("zone_count","Broj zona","",1),NUM("zone_width_mm","Širina zone (mm)"),NUM("area_height_mm","Visina zone boje (mm)"),
     NUM("shift_x_mm","Pomak X (mm)","+ desno od centra"),NUM("top_mm","Gornji ofset (mm)","+ naniže u zoni boje"),
     {k:"input_mode",label:"Ulazni PDF",type:"sel",opts:[["plate","PDF je ploča (tačan format)"],["sheet","PDF je tabak (manji ili jednak)"]]},
     {k:"vertical_anchor",label:"Vertikalno poravnanje",type:"sel",opts:[["top","Od vrha zone boje"],["bottom","Od dna zone boje"],["ink_center","Centrirana oblast sa bojom (PressPerCent)"]]},NUM("bottom_mm","Donji ofset (mm)","samo za poravnanje od dna")]],
+  ["Izlaz za mašinu",[
+    {k:"xml_enabled",label:"XML + PNG",type:"chk",hint:"Za mašine sa DI-Plot konzolom, npr. Birograf."},
+    {k:"ppf_enabled",label:"PPF",type:"chk",hint:"Za mašine koje čitaju PPF, npr. Eurodream (isto što pravi PressPerCent)."},
+    {k:"side",label:"Strana tabaka",type:"sel",opts:[["","—"],["Front","Front (lice)"],["Back","Back (poleđina)"]],hint:"Upisuje se u izlazni fajl. Obično Front."},
+    {k:"signature",label:"Signature",type:"text",show:isXml,hint:"Oznaka koju Birograf konzola očekuje u XML-u. U uzorcima: SIG1."},
+    {k:"sheet",label:"Sheet",type:"text",show:isXml,hint:"Oznaka tabaka u XML-u. U uzorcima: S1."},
+    {k:"preview_url_prefix",label:"Adresa PNG pregleda (Preview URL prefiks)",type:"text",wide:true,show:isXml,
+     hint:"Odakle konzola mašine čita PNG sliku. Saznati u štampariji — vrednost iz uzoraka je privremena."}]],
+  ["Hot folder",[{k:"hot_folder",label:"Hot folder za ovaj profil",type:"chk",def:true},{k:"hot_folder_name",label:"Ime foldera",type:"text",hint:"Prazno = ime štamparije."}]],
+  ["Status",[{k:"active",label:"Aktivan (može se koristiti za obradu)",type:"chk"},{k:"export_enabled",label:"Izvoz dozvoljen",type:"chk",hint:"Dozvoljava pravljenje XML/PPF fajla za mašinu."}]],
   ["Orijentacija",[{k:"rotation",label:"Rotacija",type:"sel",num:true,opts:[[0,"0°"],[90,"90°"],[180,"180°"],[270,"270°"]]},{k:"pdf_box",label:"PDF okvir",type:"sel",opts:[["MediaBox","MediaBox"],["CropBox","CropBox"]]},
-    {k:"mirror_x",label:"Ogledalo levo-desno",type:"chk"},{k:"mirror_y",label:"Ogledalo gore-dole",type:"chk"},{k:"reverse_zones",label:"Obrnut redosled zona",type:"chk"}]],
-  ["Rezolucija",[{k:"render_dpi",label:"Radna rezolucija",type:"sel",num:true,opts:[[300,"300 dpi"],[600,"600 dpi (preporučeno)"],[1200,"1200 dpi"]]},{k:"preview_dpi",label:"PNG pregled za konzolu",type:"sel",num:true,opts:[[25,"25 dpi"],[50,"50 dpi"],[72,"72 dpi"],[75,"75 dpi"],[150,"150 dpi"]]}]],
-  ["Hot folder",[{k:"hot_folder",label:"Hot folder za ovaj profil",type:"chk",def:true},{k:"hot_folder_name",label:"Ime foldera (prazno = ime štamparije)",type:"text"}]],
-  ["Izlaz za mašinu",[{k:"xml_enabled",label:"XML + PNG (JDF/JMF za konzolu)",type:"chk"},{k:"ppf_enabled",label:"PPF (CIP3 2.1, kao PressPerCent)",type:"chk"},
-    {k:"ppf_dpi",label:"PPF rezolucija pregleda",type:"sel",num:true,opts:[[25.4,"25,4 dpi"],[50.8,"50,8 dpi (PressPerCent)"],[101.6,"101,6 dpi"]]},
-    {k:"ppf_sheet_lay",label:"PPF SheetLay",type:"sel",opts:[["Left","Left"],["Right","Right"]]},
-    {k:"job_id",label:"Podrazumevani Job ID",type:"text"},{k:"signature",label:"Signature",type:"text"},{k:"sheet",label:"Sheet",type:"text"},{k:"side",label:"Strana",type:"sel",opts:[["","—"],["Front","Front"],["Back","Back"]]},{k:"preview_url_prefix",label:"Preview URL prefiks",type:"text",wide:true}]],
-  ["Status",[{k:"active",label:"Aktivan (može se koristiti za obradu)",type:"chk"},{k:"export_enabled",label:"Izvoz XML-a dozvoljen",type:"chk"}]],
+    {k:"mirror_x",label:"Ogledalo levo-desno",type:"chk"},{k:"mirror_y",label:"Ogledalo gore-dole",type:"chk"},{k:"reverse_zones",label:"Obrnut redosled zona",type:"chk"}],"adv"],
+  ["Rezolucija obrade",[{k:"render_dpi",label:"Radna rezolucija",type:"sel",num:true,opts:[[300,"300 dpi"],[600,"600 dpi (preporučeno)"],[1200,"1200 dpi"]]},
+    {k:"preview_dpi",label:"PNG pregled za konzolu",type:"sel",num:true,opts:[[25,"25 dpi"],[50,"50 dpi"],[72,"72 dpi"],[75,"75 dpi"],[150,"150 dpi"]],show:isXml}],"adv"],
+  ["Tehnički podaci u izlaznom fajlu",[
+    {k:"job_id",label:"Rezervni Job ID",type:"text",show:isXml,hint:"Broj posla se uzima iz imena PDF-a (npr. …_26527_…). Ovo se koristi samo ako u imenu nema broja."},
+    {k:"ppf_dpi",label:"PPF rezolucija pregleda",type:"sel",num:true,show:isPpf,opts:[[25.4,"25,4 dpi"],[50.8,"50,8 dpi (PressPerCent)"],[101.6,"101,6 dpi"]],hint:"PressPerCent uvek piše 50,8. Ne menjati."},
+    {k:"ppf_sheet_lay",label:"PPF SheetLay",type:"sel",show:isPpf,opts:[["Left","Left"],["Right","Right"]],hint:"PressPerCent piše Left. Ne menjati."}],"adv"],
 ];
 function renderProfiles(){
   if (!S.profile && S.profiles.length) S.profile = structuredClone(S.profiles[0]);
@@ -627,18 +638,26 @@ function renderProfiles(){
   if (S.profile) bindForm();
 }
 function fieldHtml(f){
-  const v = S.profile[f.k];
-  if (f.type==="chk") return `<label class="check"><input type="checkbox" data-k="${f.k}" ${(v ?? f.def) ? "checked" : ""}>${f.label}</label>`;
-  if (f.type==="sel") return `<label class="f">${f.label}<select data-k="${f.k}" ${f.num?'data-num="1"':""}>${f.opts.map(([o,l])=>`<option value="${o}" ${String(v??"")===String(o)?"selected":""}>${l}</option>`).join("")}</select></label>`;
-  if (f.type==="num") return `<label class="f">${f.label}<input type="number" step="${f.step}" data-k="${f.k}" data-num="1" value="${v??""}">${f.hint?`<span class="hint">${f.hint}</span>`:""}</label>`;
-  return `<label class="f" ${f.wide?'style="grid-column:1/-1"':""}>${f.label}<input type="text" data-k="${f.k}" value="${esc(v??"")}"></label>`;
+  if (f.show && !f.show(S.profile)) return "";
+  const v = S.profile[f.k], hint = f.hint ? `<span class="hint">${f.hint}</span>` : "", wide = f.wide ? 'style="grid-column:1/-1"' : "";
+  if (f.type==="chk") return `<label class="f" style="color:var(--ink)"><span class="check"><input type="checkbox" data-k="${f.k}" ${(v ?? f.def) ? "checked" : ""}><b>${f.label}</b></span>${hint}</label>`;
+  if (f.type==="sel") return `<label class="f" ${wide}>${f.label}<select data-k="${f.k}" ${f.num?'data-num="1"':""}>${f.opts.map(([o,l])=>`<option value="${o}" ${String(v??"")===String(o)?"selected":""}>${l}</option>`).join("")}</select>${hint}</label>`;
+  if (f.type==="num") return `<label class="f">${f.label}<input type="number" step="${f.step}" data-k="${f.k}" data-num="1" value="${v??""}">${hint}</label>`;
+  return `<label class="f" ${wide}>${f.label}<input type="text" data-k="${f.k}" value="${esc(v??"")}">${hint}</label>`;
+}
+function sectionHtml([title, fs]){
+  const inner = fs.map(fieldHtml).join("");
+  if (!inner) return "";
+  return `<fieldset><legend>${title}</legend><div class="fg">${inner}</div>${title==="Ploča i zone boje"?`<div id="pdraw" style="margin-top:14px"></div>`:""}</fieldset>`;
 }
 function formHtml(){
   const p = S.profile, [vl,vc]=VALIDATION[p.validation_status]||["",""];
   return `<div class="card"><div class="jobhead"><div><h2>${esc(p.name||"Novi profil")}</h2><div class="small muted" style="margin-top:4px">${p._new?"Nov profil":`<span class="mono">${esc(p.id)}</span>`} <span class="chip ${vc}">${vl}</span></div></div>
     <div class="row">${p._new?"":`<button class="btn ghost" id="pdup">Dupliraj</button><button class="btn danger" id="pdel">Obriši</button>`}<button class="btn" id="psave">Sačuvaj</button></div></div>
     <div id="pcheck"></div>
-    ${FIELDS.map(([title,fs])=>`<fieldset><legend>${title}</legend><div class="fg">${fs.map(fieldHtml).join("")}</div>${title==="Ploča i zone boje"?`<div id="pdraw" style="margin-top:14px"></div>`:""}</fieldset>`).join("")}
+    ${FIELDS.filter(x=>x[2]!=="adv").map(sectionHtml).join("")}
+    <details id="padv" ${S.advOpen?"open":""} style="margin:0 0 14px"><summary style="cursor:pointer;font-weight:700;padding:6px 2px">Napredno <span class="muted small" style="font-weight:400">— tehnička podešavanja, ne menjati bez potrebe</span></summary>
+      <div style="margin-top:10px">${FIELDS.filter(x=>x[2]==="adv").map(sectionHtml).join("")}</div></details>
     <fieldset><legend>Napomene</legend><textarea data-k="notes" rows="4" style="width:100%">${esc(p.notes??"")}</textarea></fieldset></div>`;
 }
 function liveCheck(){
@@ -673,10 +692,14 @@ function bindForm(){
       if (k==="side" && v==="") v=null;
       S.profile[k]=v;
       if (k==="name") form.querySelector("h2").textContent = v || "Novi profil";
+      if (k==="xml_enabled" || k==="ppf_enabled"){   // show only the fields of the chosen output
+        const y = $("main").scrollTop; S.advOpen = $("#padv").open; $("#pform").innerHTML = formHtml(); bindForm(); $("main").scrollTop = y; return;
+      }
       liveCheck();
     });
   });
   liveCheck();
+  $("#padv").ontoggle = e => S.advOpen = e.target.open;
   $("#psave").onclick = async()=>{
     const p = {...S.profile}; const orig = p._new ? null : (p._orig || p.id); delete p._new; delete p._orig;
     if (!orig) delete p.id;
