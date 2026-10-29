@@ -47,3 +47,11 @@ Name: "{userstartup}\Gama CIP Maker"; Filename: "{app}\GamaCIPMaker.exe"; Parame
 
 [Run]
 Filename: "{app}\GamaCIPMaker.exe"; Description: "Pokreni Gama CIP Maker"; Flags: nowait postinstall skipifsilent
+; Automatic update (silent install): start the program again. /norelaunch=1 is used only by tests.
+Filename: "{app}\GamaCIPMaker.exe"; Parameters: "--after-update"; Flags: nowait; Check: ShouldRelaunch
+
+[Code]
+function ShouldRelaunch: Boolean;
+begin
+  Result := WizardSilent and (ExpandConstant('{param:norelaunch|0}') = '0');
+end;

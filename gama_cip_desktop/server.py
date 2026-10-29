@@ -63,7 +63,9 @@ class App:
             if job["status"] == "queued":
                 self.queue.put(job["id"])
         from .hotfolder import HotFolders
+        from .updater import Updater
         self.hot = HotFolders(self)
+        self.updater = Updater(self, __version__)
 
     def ghostscript_status(self):
         try:
@@ -202,6 +204,21 @@ class Handler(BaseHTTPRequestHandler):
                 if method == "POST":
                     body = json.loads(self.body() or b"{}")
                     return self.send_json(app.hot.configure(body.get("root"), body.get("enabled")))
+            if p == ["update"]:
+                if method == "GET":
+                    return self.send_json(app.updater.status() | {"updated_from": app.updater.updated_from})
+                if method == "POST":
+                    body = json.loads(self.body() or b"{}")
+                    action = body.get("action")
+                    if action == "check":
+                        if app.updater.check():
+                            threading.Thread(target=app.updater.download, daemon=True, name="cip-update-dl").start()
+                        return self.send_json(app.updater.status())
+                    if action == "auto":
+                        return self.send_json(app.updater.set_auto(body.get("value")))
+                    if action == "install":
+                        return self.send_json({"message": app.updater.install(force=bool(body.get("force")))})
+                    raise ValueError("Nepoznata radnja.")
             if p == ["activity"] and method == "GET":
                 return self.send_json(app.hot.activity(int((query.get("since") or ["0"])[0] or 0)))
             if p == ["show"] and method == "POST":

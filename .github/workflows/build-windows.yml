@@ -17,7 +17,9 @@ env:
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
+    env:
+      HAS_INSTALER_TOKEN: ${{ secrets.INSTALER_TOKEN != '' }}
     defaults:
       run:
         shell: pwsh
@@ -119,6 +121,57 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" packaging\installer.iss
           Get-ChildItem installer
+          Get-FileHash installer\*.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
+            Out-File installer\SHA256SUMS.txt -Encoding ascii
+          Get-Content installer\SHA256SUMS.txt
+          # Release notes = this commit's message without the attribution lines.
+          (git log -1 --pretty=%B) | Where-Object { $_ -notmatch '^(Co-Authored-By|Claude-Session):' } |
+            Out-File installer\notes.md -Encoding utf8
+
+      - name: Provera tihe instalacije i automatskog ažuriranja (srpska slova u putanjama)
+        run: |
+          $base = "C:\CIP ažuriranje Đorđe"
+          $dir = "$base\program"
+          New-Item -ItemType Directory -Force "$base\temp", "$base\izvor" | Out-Null
+          $env:TEMP = "$base\temp"; $env:TMP = "$base\temp"; $env:GAMA_CIP_DATA = "$base\podaci"
+          $setup = (Get-ChildItem installer\GamaCIPMaker-Setup-*.exe | Select-Object -First 1).FullName
+          # 1) silent install, the same way the program installs updates
+          $p = Start-Process $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$dir`"", "/norelaunch=1", "/LOG=`"$base\install1.log`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0 -or -not (Test-Path "$dir\GamaCIPMaker.exe")) { Get-Content "$base\install1.log" -Tail 30; throw "Tiha instalacija nije uspela ($($p.ExitCode))" }
+          $p = Start-Process "$dir\GamaCIPMaker.exe" -ArgumentList "--selftest", "`"$base\selftest.txt`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content "$base\selftest.txt"; throw "Instalirani program nije prošao samoproveru" }
+          # 2) a fake newer release (99.0.0) made from this installer, served as local files
+          Copy-Item $setup "$base\izvor\GamaCIPMaker-Setup-99.0.0.exe"
+          $hash = (Get-FileHash "$base\izvor\GamaCIPMaker-Setup-99.0.0.exe" -Algorithm SHA256).Hash.ToLower()
+          "$hash  GamaCIPMaker-Setup-99.0.0.exe" | Out-File "$base\izvor\SHA256SUMS.txt" -Encoding ascii
+          $uri = { param($p) ([System.Uri]::new($p)).AbsoluteUri }
+          $release = @{ tag_name = "v99.0.0"; body = "Probna verzija"; assets = @(
+            @{ name = "GamaCIPMaker-Setup-99.0.0.exe"; size = (Get-Item "$base\izvor\GamaCIPMaker-Setup-99.0.0.exe").Length; browser_download_url = (& $uri "$base\izvor\GamaCIPMaker-Setup-99.0.0.exe") },
+            @{ name = "SHA256SUMS.txt"; size = 100; browser_download_url = (& $uri "$base\izvor\SHA256SUMS.txt") }) }
+          $release | ConvertTo-Json -Depth 5 | Out-File "$base\izvor\release.json" -Encoding utf8
+          $env:GAMA_CIP_UPDATE_URL = (& $uri "$base\izvor\release.json")
+          # 3) the INSTALLED program updates itself: check, download, SHA-256, silent install, restart
+          # -Wait would also wait for the installer and the restarted program (descendants): wait for this process only.
+          $p = Start-Process "$dir\GamaCIPMaker.exe" -ArgumentList "--updatetest", "`"$base\update.txt`"" -PassThru
+          if (-not $p.WaitForExit(180000)) { Stop-Process -Id $p.Id -Force }
+          $report = if (Test-Path "$base\update.txt") { Get-Content "$base\update.txt" -Raw -Encoding utf8 } else { "nema izveštaja" }
+          Write-Host $report
+          if ($report -notmatch "UPDATETEST STARTED") { throw "Ažuriranje nije pokrenuto" }
+          $installLog = "$base\podaci\updates\GamaCIPMaker-Setup-99.0.0.log"
+          $appLog = "$base\podaci\gama-cip.log"
+          $ok = $false
+          for ($i = 0; $i -lt 90 -and -not $ok; $i++) {
+            Start-Sleep -Seconds 2
+            $installed = (Test-Path $installLog) -and ((Get-Content $installLog -Raw -Encoding utf8) -match "Installation process succeeded")
+            $restarted = (Test-Path $appLog) -and ((Get-Content $appLog -Raw -Encoding utf8) -match "Pokrenut posle ažuriranja")
+            $ok = $installed -and $restarted
+          }
+          $text = $report + "`n--- instalacija ---`n" + $(if (Test-Path $installLog) { (Get-Content $installLog -Tail 6) -join "`n" } else { "nema loga" }) +
+                  "`n--- program ---`n" + $(if (Test-Path $appLog) { (Get-Content $appLog -Encoding utf8 -Tail 8) -join "`n" } else { "nema loga" })
+          Get-Process GamaCIPMaker -ErrorAction SilentlyContinue | Stop-Process -Force
+          Write-Host $text
+          $msg = $text.Replace("%", "%25").Replace("`r", "").Replace("`n", "%0A")
+          if ($ok) { Write-Host "::notice title=Ažuriranje::$msg" } else { Write-Host "::error title=Ažuriranje::$msg"; throw "Automatsko ažuriranje nije prošlo proveru" }
 
       - uses: actions/upload-artifact@v4
         with:
@@ -136,4 +189,24 @@ jobs:
           body: |
             Windows instaler. Preuzmite GamaCIPMaker-Setup-${{ steps.inst.outputs.version }}.exe i pokrenite ga (administratorska prava nisu potrebna).
             Program je prošao testove i samoproveru na Windows-u (obrada PDF-a, XML i PPF izvoz).
-          files: installer/*.exe
+          files: |
+            installer/*.exe
+            installer/SHA256SUMS.txt
+
+      - name: Objava za automatsko ažuriranje (javni repozitorijum gama-cip-maker-instaler)
+        if: github.ref == 'refs/heads/main' && env.HAS_INSTALER_TOKEN == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: BojanKresa73/gama-cip-maker-instaler
+          token: ${{ secrets.INSTALER_TOKEN }}
+          tag_name: v${{ steps.inst.outputs.version }}
+          name: Gama United CIP Maker ${{ steps.inst.outputs.version }}
+          body_path: installer/notes.md
+          make_latest: "true"
+          files: |
+            installer/*.exe
+            installer/SHA256SUMS.txt
+
+      - name: Napomena ako token za objavu nije podešen
+        if: env.HAS_INSTALER_TOKEN != 'true'
+        run: Write-Host "::warning title=Automatsko ažuriranje::Secret INSTALER_TOKEN nije podešen; instaler nije objavljen u gama-cip-maker-instaler."

@@ -188,8 +188,11 @@ def start_tray(app, window, state):
         return None
 
     def show(*_):
-        window.show()
-        window.restore()
+        if app.on_show:
+            app.on_show()
+        else:
+            window.show()
+            window.restore()
 
     def open_root(*_):
         root = app.hot.root
@@ -217,12 +220,37 @@ def start_tray(app, window, state):
     return icon
 
 
+def update_test(report):
+    """CI check of the whole update path on Windows: check -> download -> SHA-256 -> silent install -> restart."""
+    from gama_cip_desktop.server import App
+    app = App()
+    up = app.updater
+    lines = []
+    try:
+        found = up.check()
+        lines.append(f"provera: {up.status()['status']} latest={up.status()['latest']}")
+        target = up.download() if found else None
+        lines.append(f"preuzimanje: {up.status()['status']} {target}")
+        if not target:
+            raise RuntimeError(up.status().get("error") or "nema nove verzije")
+        up.quit_program = lambda: os._exit(0)
+        lines.append(up.install())
+        Path(report).write_text("\n".join(lines) + "\nUPDATETEST STARTED\n", encoding="utf-8")
+        return 0
+    except Exception:  # noqa: BLE001
+        Path(report).write_text("\n".join(lines) + "\nUPDATETEST FAILED\n" + traceback.format_exc(), encoding="utf-8")
+        return 1
+
+
 def main():
     bundled_ghostscript()
     if "--selftest" in sys.argv:
         from gama_cip_desktop.selftest import main as selftest
         target = sys.argv[sys.argv.index("--selftest") + 1] if len(sys.argv) > sys.argv.index("--selftest") + 1 else "selftest.txt"
         sys.exit(selftest(target))
+    if "--updatetest" in sys.argv:
+        setup_logging()
+        sys.exit(update_test(sys.argv[sys.argv.index("--updatetest") + 1]))
     if "--hottest" in sys.argv:
         from gama_cip_desktop.selftest import hot_test
         i = sys.argv.index("--hottest")
@@ -259,17 +287,21 @@ def main():
         server.serve_forever()
         return
     bridge = Bridge(app)
-    hidden = "--minimized" in sys.argv and app.hot.enabled
+    after_update = "--after-update" in sys.argv
+    if after_update:
+        LOG.info("Pokrenut posle ažuriranja (sa verzije %s)", app.updater.updated_from)
+    hidden = ("--minimized" in sys.argv or after_update) and app.hot.enabled
     window = webview.create_window("Gama United · CIP Maker", url, js_api=bridge, width=1360, height=880,
                                    min_size=(1024, 680), hidden=hidden)
     bridge._window = window
-    state = {"quitting": False, "told": False}
+    state = {"quitting": False, "told": False, "visible": not hidden}
     icon = None
 
     def on_closing():
         # Runs on the GUI thread: decide quickly, never block here.
         if state["quitting"] or icon is None or not app.hot.enabled:
             return True
+        state["visible"] = False
         threading.Thread(target=window.hide, daemon=True, name="hide").start()
         if not state["told"]:
             state["told"] = True
@@ -280,6 +312,7 @@ def main():
         return False
 
     def bring_to_front():
+        state["visible"] = True
         window.show()
         window.restore()
 
@@ -290,11 +323,25 @@ def main():
             icon.notify(text, title)
 
     app.notify = notify
+
+    def quit_for_update():
+        state["quitting"] = True
+        try:
+            if icon is not None:
+                icon.stop()
+        finally:
+            window.destroy()
+
+    app.updater.quit_program = quit_for_update
+    app.updater.window_visible = lambda: state["visible"]
     window.events.closing += on_closing
     if testing:
         gui_test(window, sys.argv[sys.argv.index("--guitest") + 1])
     else:
         icon = start_tray(app, window, state)
+        app.updater.start()
+        if app.updater.updated_from:
+            threading.Timer(4, lambda: notify("Gama CIP Maker", f"Program je ažuriran na verziju {__version__}.")).start()
     try:
         webview.start(private_mode=False, storage_path=str(app.root / "webview"))
     except Exception:
@@ -311,6 +358,7 @@ def main():
         if not testing:
             (app.root / "instance.json").unlink(missing_ok=True)
         app.hot.stop.set()
+        app.updater.stop.set()
         server.shutdown()
 
 

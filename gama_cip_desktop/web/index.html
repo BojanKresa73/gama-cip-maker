@@ -129,6 +129,10 @@ legend{font-weight:700;font-size:13px;padding:0 6px;color:var(--ink)}
 .fcard .stats b{color:var(--ink)}
 .evrow{display:grid;grid-template-columns:72px 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fff}
 .evrow.click{cursor:pointer}.evrow.click:hover{border-color:var(--blue)}
+.modal{position:fixed;inset:0;background:rgba(12,22,48,.45);z-index:40;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal .card{width:min(560px,100%);max-height:90vh;overflow:auto}
+.upd{display:inline-flex;align-items:center;gap:6px;background:var(--cyan);color:var(--navy);font-weight:700;border-radius:999px;padding:2px 9px;font-size:11.5px}
+.bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin:10px 0}.bar i{display:block;height:100%;background:var(--blue)}
 .legend{display:flex;gap:14px;font-size:12px;color:var(--ink-3);margin-top:6px}
 </style>
 </head>
@@ -144,7 +148,7 @@ legend{font-weight:700;font-size:13px;padding:0 6px;color:var(--ink)}
     <div class="foot">
       <div id="gs"><span class="dot" style="background:#7b86a0"></span>Proveravam Ghostscript…</div>
       <div><a id="datafolder">Folder sa podacima</a></div>
-      <div id="ver" class="muted"></div>
+      <a id="ver" class="muted" style="text-decoration:none;cursor:pointer"></a>
     </div>
   </aside>
   <main id="main"></main>
@@ -187,7 +191,7 @@ async function init(){
   try{
     const st = await api("GET","/api/state");
     S.dataDir = st.data_dir;
-    $("#ver").textContent = "Verzija " + st.version;
+    S.version = st.version;
     $("#gs").innerHTML = st.ghostscript.ok
       ? `<span class="dot" style="background:#2bd47f"></span>Ghostscript ${esc(st.ghostscript.version)}`
       : `<span class="dot" style="background:#ff5a64"></span>Ghostscript nije pronađen`;
@@ -196,8 +200,49 @@ async function init(){
   await loadProfiles(); await loadJobs(); await loadHot();
   S.seq = (S.hot && S.hot.seq) || 0;
   setInterval(pollActivity, 3000);
+  await loadUpdate(true); setInterval(()=>loadUpdate(false), 15000);
+  $("#ver").onclick = openUpdate;
   if (S.hot && !S.hot.root) return go("hot");   // first start: ask where the hot folders go
   render();
+}
+/* ---------------- updates ---------------- */
+const UPD = {idle:"", checking:"Proveravam…", uptodate:"Najnovija verzija", available:"Nova verzija pronađena", downloading:"Preuzimam…",
+             ready:"Spremno za instalaciju", installing:"Instaliram…", error:"Provera nije uspela"};
+async function loadUpdate(first){
+  try{ S.upd = await api("GET","/api/update"); }catch(e){ return; }
+  const u = S.upd, has = ["ready","downloading","available"].includes(u.status) && u.latest;
+  $("#ver").innerHTML = `Verzija ${esc(u.current)}` + (has ? ` <span class="upd">↑ ${esc(u.latest)}</span>` : "");
+  if (first && u.updated_from) toast(`Program je ažuriran: ${u.updated_from} → ${u.current}.`);
+  if ($("#updmodal")) renderUpdate();
+}
+function openUpdate(){ const m=document.createElement("div"); m.className="modal"; m.id="updmodal"; m.onclick=e=>{ if(e.target===m) m.remove(); };
+  document.body.appendChild(m); renderUpdate(); }
+function renderUpdate(){
+  const m = $("#updmodal"), u = S.upd || {}; if (!m) return;
+  const when = u.checked_at ? new Date(u.checked_at*1000).toLocaleString("sr-RS",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}) : "još nije";
+  m.innerHTML = `<div class="card">
+    <div class="jobhead" style="margin-bottom:8px"><div><h2>Ažuriranje programa</h2>
+      <div class="small muted" style="margin-top:4px">Instalirana verzija <b>${esc(u.current)}</b>${u.latest?` · najnovija <b>${esc(u.latest)}</b>`:""} · provereno: ${when}</div></div>
+      <button class="btn ghost" id="updclose">Zatvori</button></div>
+    <div class="row"><span class="chip ${u.status==="error"?"bad":u.status==="ready"?"ok":u.status==="uptodate"?"ok":"info"}">${UPD[u.status]||u.status}</span>
+      ${u.status==="downloading"||u.status==="checking"?'<span class="spin"></span>':""}</div>
+    ${u.status==="downloading"?`<div class="bar"><i style="width:${u.progress||0}%"></i></div><div class="small muted">${u.progress||0} %</div>`:""}
+    ${u.error?`<div class="note bad" style="margin-top:10px">${esc(u.error)}</div>`:""}
+    ${u.notes && u.latest && u.latest!==u.current ?`<div class="note info" style="margin-top:12px;white-space:pre-wrap">${esc(u.notes)}</div>`:""}
+    <label class="check" style="margin-top:14px"><input type="checkbox" id="updauto" ${u.auto_install?"checked":""}>
+      Instaliraj automatski kad je program pored sata i nema poslova u obradi</label>
+    <p class="small muted" style="margin:8px 0 14px">Program proverava nove verzije pri pokretanju i na svakih 6 sati. Pre instalacije proverava ispravnost preuzetog fajla (SHA-256). Posle instalacije se sam ponovo pokreće; profili, hot folderi i poslovi ostaju.</p>
+    <div class="row"><button class="btn ghost" id="updcheck">Proveri sada</button>
+      ${u.status==="ready"?`<button class="btn" id="updinstall">Instaliraj ${esc(u.latest)} sada</button>`:""}</div></div>`;
+  $("#updclose").onclick = () => m.remove();
+  $("#updauto").onchange = async e => { try{ S.upd = await api("POST","/api/update",{action:"auto", value:e.target.checked}); }catch(x){ toast(x.message,true); } };
+  $("#updcheck").onclick = async () => { S.upd = Object.assign({}, S.upd, {status:"checking", error:null}); renderUpdate();
+    try{ S.upd = await api("POST","/api/update",{action:"check"}); }catch(x){ toast(x.message,true); } loadUpdate(false); };
+  $("#updinstall") && ($("#updinstall").onclick = async () => {
+    try{ const r = await api("POST","/api/update",{action:"install"}); toast(r.message); }
+    catch(x){ if (/Obrada je u toku/.test(x.message) && confirm(x.message + "\n\nInstalirati ipak sada? Poslovi u obradi biće ponovo obrađeni posle restarta.")){
+        try{ const r = await api("POST","/api/update",{action:"install", force:true}); toast(r.message); }catch(y){ toast(y.message,true); } }
+      else toast(x.message,true); } });
 }
 function badge(){ const b=$("#hotbadge"); b.textContent=S.unseen; b.style.display=S.unseen?"inline-block":"none"; }
 async function openHotJob(id){ if (!id) return; go("jobs"); await openJob(id); }
