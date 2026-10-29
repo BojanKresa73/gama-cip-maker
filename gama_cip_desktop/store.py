@@ -27,7 +27,6 @@ REQUIRED = {
     "top_mm": "Gornji ofset",
     "signature": "Signature",
     "sheet": "Sheet",
-    "side": "Strana (Front/Back)",
 }
 
 
@@ -80,6 +79,8 @@ def engine_settings(p):
         if s.get(key) is None:
             s[key] = ""
     s.setdefault("validation_status", "unverified")
+    if s.get("side") not in ("Front", "Back"):
+        s["side"] = "Front"   # like PressPerCent; Back only from the file name
     return s
 
 
@@ -159,18 +160,73 @@ class ProfileStore:
 
 
 class JobStore:
-    """Each job lives in its own folder: source.pdf, job.json and results/."""
+    """Each job lives in its own folder: source.pdf, job.json and results/.
 
-    def __init__(self, root, keep=100):
+    A small index (jobs/index.json) keeps one summary per job, so the archive can be
+    searched and filtered quickly even with thousands of jobs.
+    """
+
+    LIGHT_AFTER_DAYS = 90    # large preview files of older jobs are removed; the data stays
+
+    def __init__(self, root, keep=5000):
         self.folder = Path(root) / "jobs"
         self.folder.mkdir(parents=True, exist_ok=True)
         self.keep = keep
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
+        self.index_path = self.folder / "index.json"
+        self.index = self._load_index()
         # A job interrupted by closing the app is marked failed on next start.
-        for job in self.all():
-            if job["status"] in ("queued", "processing"):
-                self.update(job["id"], status="failed", stage="Prekinuto", error="Program je zatvoren tokom obrade. Pokrenite ponovo.")
+        for summary in list(self.index.values()):
+            if summary["status"] in ("queued", "processing"):
+                self.update(summary["id"], status="failed", stage="Prekinuto", error="Program je zatvoren tokom obrade. Pokrenite ponovo.")
+        self.lighten()
 
+    # ------------------------------------------------------------ index
+    @staticmethod
+    def summary(job):
+        from gama_cip.names import job_id_from_name, search_key
+        result = job.get("result") or {}
+        pages = result.get("pages") or []
+        cov, spots = {}, set()
+        for page in pages:
+            for c in page.get("channels", []):
+                if c["name"] in ("Cyan", "Magenta", "Yellow", "Black"):
+                    cov.setdefault(c["name"], []).append(c["mean"])
+                else:
+                    spots.add(c["name"])
+        profile = job.get("profile") or {}
+        hot = job.get("hot")
+        return {"id": job["id"], "filename": job.get("filename", ""), "created": job.get("created", 0),
+                "status": job.get("status"), "stage": job.get("stage"), "error": (job.get("error") or "")[:300],
+                "profile": {"id": profile.get("id"), "name": profile.get("name", ""), "printshop": profile.get("printshop", "")},
+                "hot": {"base": hot.get("base")} if hot else None, "pages": len(pages),
+                "job_number": job_id_from_name(job.get("filename", "")),
+                "coverage": {k: sum(v) / len(v) for k, v in cov.items()}, "spots": sorted(spots),
+                "light": bool(job.get("light")),
+                "key": search_key(" ".join([job.get("filename", ""), profile.get("printshop", ""), profile.get("name", "")]))}
+
+    def _load_index(self):
+        dirs = {f.name for f in self.folder.iterdir() if f.is_dir() and re.fullmatch(r"[0-9a-f-]{36}", f.name)}
+        try:
+            index = json.loads(self.index_path.read_text(encoding="utf-8"))
+            if set(index) == dirs:
+                return index
+        except (OSError, ValueError):
+            pass
+        index = {}   # rebuild once from the job folders (first start of this version, or a damaged index)
+        for name in dirs:
+            job = self.get(name)
+            if job:
+                index[name] = self.summary(job)
+        self._save_index(index)
+        return index
+
+    def _save_index(self, index=None):
+        tmp = self.index_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(index if index is not None else self.index, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, self.index_path)
+
+    # ------------------------------------------------------------ jobs
     def path(self, job_id):
         return self.folder / str(uuid.UUID(str(job_id)))
 
@@ -190,6 +246,9 @@ class JobStore:
         tmp = target.with_suffix(".tmp")
         tmp.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
         tmp.replace(target)
+        with self.lock:
+            self.index[job["id"]] = self.summary(job)
+            self._save_index()
 
     def get(self, job_id):
         try:
@@ -206,16 +265,54 @@ class JobStore:
             return job
 
     def all(self):
-        jobs = [j for j in (self.get(f.name) for f in self.folder.iterdir() if f.is_dir() and re.fullmatch(r"[0-9a-f-]{36}", f.name)) if j]
-        return sorted(jobs, key=lambda j: j["created"], reverse=True)
+        """Job summaries, newest first."""
+        with self.lock:
+            return sorted(self.index.values(), key=lambda j: j["created"], reverse=True)
+
+    def query(self, q="", printshop="", status="", source="", days=0, offset=0, limit=60):
+        from gama_cip.names import search_key
+        jobs = self.all()
+        facets = {}
+        for j in jobs:
+            facets[j["profile"]["printshop"]] = facets.get(j["profile"]["printshop"], 0) + 1
+        words = search_key(q).split()
+        since = time.time() - days * 86400 if days else 0
+        groups = {"ok": ("completed",), "error": ("failed",), "busy": ("queued", "processing")}
+        out = [j for j in jobs
+               if all(w in j["key"] or w in j["job_number"] for w in words)
+               and (not printshop or j["profile"]["printshop"] == printshop)
+               and (not status or j["status"] in groups.get(status, (status,)))
+               and (not source or (source == "hot") == bool(j["hot"]))
+               and j["created"] >= since]
+        return {"total": len(out), "all": len(jobs), "jobs": out[offset:offset + limit],
+                "printshops": sorted(([k, v] for k, v in facets.items() if k), key=lambda kv: kv[0].lower())}
 
     def delete(self, job_id):
         job = self.get(job_id)
         if job and job["status"] in ("queued", "processing"):
             raise ValueError("Posao se trenutno obrađuje.")
         shutil.rmtree(self.path(job_id), ignore_errors=True)
+        with self.lock:
+            self.index.pop(str(job_id), None)
+            self._save_index()
 
     def prune(self):
         for job in self.all()[self.keep:]:
             if job["status"] not in ("queued", "processing"):
-                shutil.rmtree(self.path(job["id"]), ignore_errors=True)
+                self.delete(job["id"])
+
+    def lighten(self):
+        """Older jobs keep their data and small previews; large files (source PDF, plate views,
+        full-size PNG, exports) are removed after LIGHT_AFTER_DAYS days."""
+        limit = time.time() - self.LIGHT_AFTER_DAYS * 86400
+        for summary in self.all():
+            if summary["light"] or summary["created"] >= limit or summary["status"] in ("queued", "processing"):
+                continue
+            folder = self.path(summary["id"])
+            (folder / "source.pdf").unlink(missing_ok=True)
+            results = folder / "results"
+            if results.is_dir():
+                for f in results.iterdir():
+                    if re.search(r"(\.view-\d+\.(png|jpg)|\.view\.jpg|\.PNG|^export-.*)$", f.name):
+                        f.unlink(missing_ok=True)
+            self.update(summary["id"], light=True)

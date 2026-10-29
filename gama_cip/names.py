@@ -45,3 +45,26 @@ def job_id_from_name(name, limit=64):
     stem = ascii_name(name.rsplit(".", 1)[0] if name.lower().endswith(".pdf") else name)
     match = re.search(r"(?<![0-9A-Za-z])\d{4,}(?![0-9A-Za-z])", stem)
     return match[0] if match else stem[:limit]
+
+
+BACK_WORDS = re.compile(r"(?<![a-z])(back|nalicje|poledjina)(?![a-z])")
+FRONT_WORDS = re.compile(r"(?<![a-z])(front|lice)(?![a-z])")
+
+
+def side_from_name(name):
+    """'Front'/'Back' when the file name says so ('..._back.pdf', 'naličje', 'poleđina'), else None.
+
+    PressPerCent writes every PDF page as Front; Back only makes sense when the
+    name explicitly marks the reverse side.
+    """
+    words = ascii_name(name).lower().replace(".", "_")
+    if BACK_WORDS.search(words):
+        return "Back"
+    if FRONT_WORDS.search(words):
+        return "Front"
+    return None
+
+
+def search_key(text):
+    """Accent- and script-insensitive key: 'Štanc', 'stanc' and 'Штанц' all match 'stanc'."""
+    return ascii_name(text, fallback="", limit=1000).lower().replace("_", " ")

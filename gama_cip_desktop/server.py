@@ -38,7 +38,7 @@ def web_folder():
 def result_files(result):
     names = set()
     for page in (result or {}).get("pages", []):
-        for key in ("png", "thumbnail"):
+        for key in ("png", "thumbnail", "view"):
             if page.get(key):
                 names.add(page[key])
         for c in page.get("channels", []):
@@ -122,8 +122,16 @@ class App:
             except Exception:  # noqa: BLE001
                 traceback.print_exc()
 
-    def export(self, job_id, selections, cip_job_id, side):
+    @staticmethod
+    def side_for(job):
+        """Front like PressPerCent, Back only when the file name says so; profile default otherwise."""
+        from gama_cip.names import side_from_name
+        return side_from_name(job["filename"]) or (job.get("profile") or {}).get("side") or "Front"
+
+    def export(self, job_id, selections, cip_job_id, side="auto"):
         job = self.jobs.get(job_id)
+        if job and side not in ("Front", "Back"):
+            side = self.side_for(job)
         if not job or job["status"] != "completed":
             raise ValueError("Posao nema završen obračun.")
         if not job["profile"].get("export_enabled"):
@@ -236,8 +244,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"ok": True})
             if p == ["jobs"]:
                 if method == "GET":
-                    jobs = [{k: v for k, v in j.items() if k != "result"} | {"pages": len((j.get("result") or {}).get("pages", []))} for j in app.jobs.all()]
-                    return self.send_json({"jobs": jobs})
+                    arg = lambda k, d="": (query.get(k) or [d])[0]
+                    return self.send_json(app.jobs.query(arg("q"), arg("printshop"), arg("status"), arg("source"),
+                                                         int(arg("days", "0") or 0), int(arg("offset", "0") or 0),
+                                                         min(500, int(arg("limit", "60") or 60))))
                 if method == "POST":
                     name = (query.get("name") or ["dokument.pdf"])[0]
                     profile_id = (query.get("profile") or [""])[0]
@@ -249,7 +259,9 @@ class Handler(BaseHTTPRequestHandler):
                 if not job:
                     return self.send_json({"error": "Posao nije pronađen."}, 404)
                 if len(p) == 2 and method == "GET":
-                    return self.send_json({"job": job})
+                    from gama_cip.names import job_id_from_name, side_from_name
+                    return self.send_json({"job": job | {"auto_side": app.side_for(job), "side_from_name": bool(side_from_name(job["filename"])),
+                                                         "job_number": job_id_from_name(job["filename"])}})
                 if len(p) == 2 and method == "DELETE":
                     app.jobs.delete(job_id)
                     return self.send_json({"ok": True})
@@ -263,7 +275,7 @@ class Handler(BaseHTTPRequestHandler):
                         cip_job_id = "PPF"  # PPF carries the file name as its job name
                     if not cip_job_id or len(cip_job_id) > 64:
                         raise ValueError("Unesite Job ID (do 64 znaka).")
-                    return self.send_json(app.export(job_id, body.get("selections") or {}, cip_job_id, body.get("side")))
+                    return self.send_json(app.export(job_id, body.get("selections") or {}, cip_job_id, body.get("side") or "auto"))
                 if len(p) == 4 and p[2] in ("files", "download") and method == "GET":
                     name = p[3]
                     allowed = result_files(job.get("result")) if p[2] == "files" else None

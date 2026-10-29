@@ -37,10 +37,11 @@ h1{font-size:22px;margin:0 0 4px;font-weight:650;letter-spacing:-.01em}
 .lead{color:var(--ink-2);margin:0 0 20px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px}
 .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.grid2{display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start}
+.grid2{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+#detail,#pform{min-width:0}
 label.f{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--ink-2);font-weight:550}
-input[type=text],input[type=number],select,textarea{border:1px solid var(--line-2);border-radius:7px;padding:8px 10px;background:#fff;min-width:0}
-input:focus,select:focus,textarea:focus{outline:2px solid rgba(20,99,214,.25);border-color:var(--blue)}
+input[type=text],input[type=search],input[type=number],select,textarea{border:1px solid var(--line-2);border-radius:7px;padding:8px 10px;background:#fff;min-width:0}
+input:focus,select:focus,textarea:focus,input[type=search]:focus{outline:2px solid rgba(20,99,214,.25);border-color:var(--blue)}
 textarea{resize:vertical;min-height:70px}
 .btn{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:8px;font-weight:600;background:var(--blue);color:#fff;white-space:nowrap}
 .btn:hover{background:var(--blue-ink)}
@@ -57,8 +58,15 @@ textarea{resize:vertical;min-height:70px}
 .drop.over{border-color:var(--blue);background:var(--info-bg)}
 .drop b{color:var(--blue)}
 /* history */
-.hist{display:flex;flex-direction:column;gap:6px;margin-top:10px}
-.hist button{all:unset;cursor:pointer;display:block;padding:10px 12px;border-radius:8px;border:1px solid transparent;background:#fff}
+.arch{margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:12px}
+.archhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.arch input[type=search]{width:100%;box-sizing:border-box;margin-bottom:8px}
+.archf{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px}
+.archf select{font-size:12.5px;padding:6px 8px}
+.dayh{font-size:11.5px;font-weight:700;color:var(--ink-3);text-transform:capitalize;padding:10px 4px 2px;letter-spacing:.02em}
+.hist{display:flex;flex-direction:column;gap:5px;max-height:calc(100vh - 470px);min-height:240px;overflow:auto;margin:0 -4px;padding:0 4px}
+.hist button.more{text-align:center;font-weight:650;color:var(--blue);background:#f6f8fc}
+.hist button{all:unset;cursor:pointer;display:block;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:#fff}
 .hist button:hover{border-color:var(--line-2)}
 .hist button.on{border-color:var(--blue);box-shadow:0 0 0 2px rgba(20,99,214,.12)}
 .hist .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -84,7 +92,7 @@ textarea{resize:vertical;min-height:70px}
 .sep .st b{font-size:15px;color:var(--ink)}
 .sep img{width:120px;border:1px solid var(--line);border-radius:4px;background:#fff;display:block}
 .bars{width:100%;height:56px;display:block}
-.export{display:grid;grid-template-columns:1fr 140px auto;gap:12px;align-items:end;margin-top:16px}
+.export{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:end;margin-top:10px}
 /* profiles */
 .plist{display:flex;flex-direction:column;gap:6px}
 .plist button{all:unset;cursor:pointer;padding:10px 12px;border-radius:8px;background:#fff;border:1px solid var(--line)}
@@ -115,11 +123,13 @@ legend{font-weight:700;font-size:13px;padding:0 6px;color:var(--ink)}
 .vchip{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;border:1px solid var(--line-2);font-size:12.5px;font-weight:650;background:#fff;user-select:none}
 .vchip.off{opacity:.4;text-decoration:line-through}
 .vchip small{font-weight:500;color:var(--ink-3)}
-.vstage{position:relative;overflow:auto;max-height:68vh;background:repeating-conic-gradient(#eef1f6 0 25%,#fff 0 50%) 0 0/16px 16px}
+.vstage{position:relative;overflow:auto;max-height:66vh;user-select:none;background:repeating-conic-gradient(#eef1f6 0 25%,#fff 0 50%) 0 0/16px 16px}
 .viewer.full .vstage{max-height:none;flex:1}
 .vinner{position:relative;margin:0 auto}
 .vinner canvas,.vinner img{display:block;width:100%;height:auto;image-rendering:auto}
 .vinner svg.grid{position:absolute;left:0;right:0;bottom:0;width:100%;pointer-events:none}
+.vstage.pan{cursor:grab}.vstage.dragging{cursor:grabbing}
+.vlens{position:fixed;z-index:31;pointer-events:none;display:none;border-radius:50%;box-shadow:0 0 0 3px #fff,0 0 0 4px var(--navy),0 12px 30px rgba(0,0,0,.35)}
 .vtip{position:fixed;z-index:30;pointer-events:none;background:rgba(12,22,48,.94);color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.5;display:none;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .vtip b{font-size:12.5px}.vtip .r{display:flex;gap:8px;align-items:center;justify-content:space-between}
 .vtip .sw{width:10px;height:10px}
@@ -181,7 +191,7 @@ const fileUrl = (job, name) => `/api/jobs/${job}/files/${encodeURIComponent(name
 const rgbCss = rgb => `rgb(${rgb.map(v=>Math.round(v*255)).join(",")})`;
 
 const S = {view:"jobs", profiles:[], jobs:[], job:null, page:0, sel:{}, profile:null, poll:null, exportForm:{}, hot:null, hotPoll:null,
-           seq:0, unseen:0, vw:{mode:"sep", hidden:new Set(), zoom:"fit", full:false}, planes:{}};
+           seq:0, unseen:0, vw:{mode:"sep", hidden:new Set(), scale:1, full:false, lens:false, lensZoom:2}, planes:{}};
 window.__cipState = S;
 
 /* ---------------- startup ---------------- */
@@ -219,7 +229,7 @@ function openUpdate(){ const m=document.createElement("div"); m.className="modal
   document.body.appendChild(m); renderUpdate(); }
 function renderUpdate(){
   const m = $("#updmodal"), u = S.upd || {}; if (!m) return;
-  const when = u.checked_at ? new Date(u.checked_at*1000).toLocaleString("sr-RS",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}) : "još nije";
+  const when = u.checked_at ? new Date(u.checked_at*1000).toLocaleString("sr-Latn-RS",{day:"numeric",month:"numeric",hour:"2-digit",minute:"2-digit"}) : "još nije";
   m.innerHTML = `<div class="card">
     <div class="jobhead" style="margin-bottom:8px"><div><h2>Ažuriranje programa</h2>
       <div class="small muted" style="margin-top:4px">Instalirana verzija <b>${esc(u.current)}</b>${u.latest?` · najnovija <b>${esc(u.latest)}</b>`:""} · provereno: ${when}</div></div>
@@ -257,13 +267,18 @@ async function pollActivity(){
     toast(`${last.printshop}: ${last.file} — ${ok ? "gotovo (" + (last.outputs||[]).filter(o=>!/\.PNG$/.test(o)).join(", ") + ")" : "GREŠKA"}`, !ok, last.job_id ? "Otvori" : null, ()=>openHotJob(last.job_id));
     if (S.view!=="hot"){ S.unseen += done.length; badge(); }
   }
-  await loadJobs();
-  if (S.view==="jobs"){ const h=$("#hist"); if (h) h.innerHTML = histHtml(); }
+  if (S.view==="jobs") await refreshList(); else await loadJobs();
   if (S.view==="hot"){ await loadHot(); renderHot(); }
 }
 async function loadHot(){ try{ S.hot = await api("GET","/api/hot"); }catch(e){ S.hot = null; } }
 async function loadProfiles(){ S.profiles = (await api("GET","/api/profiles")).profiles; }
-async function loadJobs(){ S.jobs = (await api("GET","/api/jobs")).jobs; }
+function loadFilters(){ try{ return Object.assign({q:"", printshop:"", status:"", source:"", days:0}, JSON.parse(localStorage.getItem("cip.filters")||"{}"), {q:""}); }catch(e){ return {q:"", printshop:"", status:"", source:"", days:0}; } }
+S.f = loadFilters(); S.limit = 60; S.list = {total:0, all:0, printshops:[]};
+async function loadJobs(){
+  const f = S.f, qs = new URLSearchParams({q:f.q, printshop:f.printshop, status:f.status, source:f.source, days:f.days, limit:S.limit});
+  const r = await api("GET","/api/jobs?"+qs); S.jobs = r.jobs; S.list = r;
+  try{ localStorage.setItem("cip.filters", JSON.stringify(f)); }catch(e){}
+}
 function go(v){ S.view=v; document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("on", b.dataset.view===v)); render(); }
 function render(){
   clearTimeout(S.hotPoll);
@@ -302,7 +317,7 @@ function renderHot(){
     return;
   }
   const when = t => { const d=new Date(t*1000), today=new Date().toDateString()===d.toDateString();
-    return (today ? "" : d.toLocaleDateString("sr-RS",{day:"numeric",month:"numeric"})+" ") + d.toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit"}); };
+    return (today ? "" : d.toLocaleDateString("sr-Latn-RS",{day:"numeric",month:"numeric"})+" ") + d.toLocaleTimeString("sr-Latn-RS",{hour:"2-digit",minute:"2-digit"}); };
   const ev = (h.events||[]).slice(0,40).map(e=>{ const c = e.status==="OK"?"ok":e.status==="GREŠKA"?"bad":"info";
     return `<div class="evrow ${e.job_id && e.status!=="u obradi"?"click":""}" ${e.job_id && e.status!=="u obradi"?`data-job="${e.job_id}" title="Otvori pregled i separacije"`:""}>
       <span class="small muted">${when(e.time)}</span>
@@ -356,7 +371,17 @@ function renderJobs(){
           <div id="profnote" class="small muted" style="margin:8px 0 12px"></div>
           <div class="drop" id="drop">Prevucite PDF ovde<br><span class="small">ili <b>izaberite fajl</b></span></div>
         </div>
-        <div class="hist" id="hist">${histHtml()}</div>
+        <div class="arch">
+          <div class="archhead"><b>Poslovi</b><span class="small muted" id="archcount"></span></div>
+          <input type="search" id="fq" placeholder="Pretraga: ime fajla, broj posla, štamparija…" value="${esc(S.f.q)}">
+          <div class="archf">
+            <select id="fshop"><option value="">Sve štamparije</option>${(S.list.printshops||[]).map(([n,c])=>`<option value="${esc(n)}" ${S.f.printshop===n?"selected":""}>${esc(n)} (${c})</option>`).join("")}</select>
+            <select id="fstatus">${[["","Svi statusi"],["ok","Završeno"],["error","Greška"],["busy","U obradi"]].map(([v,l])=>`<option value="${v}" ${S.f.status===v?"selected":""}>${l}</option>`).join("")}</select>
+            <select id="fsource">${[["","Hot + ručno"],["hot","Hot folder"],["manual","Ručno"]].map(([v,l])=>`<option value="${v}" ${S.f.source===v?"selected":""}>${l}</option>`).join("")}</select>
+            <select id="fdays">${[[0,"Ceo period"],[1,"Danas"],[7,"7 dana"],[30,"30 dana"],[90,"90 dana"]].map(([v,l])=>`<option value="${v}" ${+S.f.days===v?"selected":""}>${l}</option>`).join("")}</select>
+          </div>
+          <div class="hist" id="hist">${histHtml()}</div>
+        </div>
       </div>
       <div id="detail">${S.job ? "" : `<div class="card empty">Izaberite profil i PDF da biste pokrenuli obradu,<br>ili otvorite raniji posao sa leve strane.</div>`}</div>
     </div>`;
@@ -371,15 +396,42 @@ function renderJobs(){
   drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
   drop.ondragleave = () => drop.classList.remove("over");
   drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); const f=e.dataTransfer.files[0]; if (f) upload(f); };
-  $("#hist").onclick = e => { const b=e.target.closest("button[data-id]"); if (b) openJob(b.dataset.id); };
+  $("#hist").onclick = e => { const m=e.target.closest("[data-more]"); if (m){ S.limit += 60; refreshList(); return; }
+    const b=e.target.closest("button[data-id]"); if (b) openJob(b.dataset.id); };
+  let qt = null;
+  $("#fq").oninput = e => { clearTimeout(qt); qt = setTimeout(()=>{ S.f.q = e.target.value; S.limit = 60; refreshList(); }, 220); };
+  [["#fshop","printshop"],["#fstatus","status"],["#fsource","source"],["#fdays","days"]].forEach(([id,k]) => $(id).onchange = e => { S.f[k] = k==="days" ? +e.target.value : e.target.value; S.limit = 60; refreshList(); });
+  updateCount();
   if (S.job) renderDetail();
 }
+function dayLabel(t){
+  const d = new Date(t*1000), today = new Date(); today.setHours(0,0,0,0);
+  const day = new Date(d); day.setHours(0,0,0,0);
+  const diff = Math.round((today - day) / 86400000);
+  return diff === 0 ? "Danas" : diff === 1 ? "Juče" : d.toLocaleDateString("sr-Latn-RS", {weekday:"long", day:"numeric", month:"numeric", year:"numeric"});
+}
+function updateCount(){ const el=$("#archcount"); if (!el) return; const L=S.list;
+  el.textContent = L.total === L.all ? `${L.all}` : `${L.total} od ${L.all}`; }
+async function refreshList(){
+  try{ await loadJobs(); }catch(e){ return; }
+  const h = $("#hist"); if (h) h.innerHTML = histHtml(); updateCount();
+  const shop = $("#fshop"); if (shop && shop.options.length - 1 !== (S.list.printshops||[]).length){
+    shop.innerHTML = `<option value="">Sve štamparije</option>` + S.list.printshops.map(([n,c])=>`<option value="${esc(n)}" ${S.f.printshop===n?"selected":""}>${esc(n)} (${c})</option>`).join(""); }
+}
 function histHtml(){
-  if (!S.jobs.length) return `<div class="muted small" style="padding:6px 4px">Još nema poslova.</div>`;
-  return `<div class="small muted" style="padding:6px 4px 0;font-weight:600">Raniji poslovi</div>` + S.jobs.map(j=>{
+  if (!S.jobs.length) return `<div class="muted small" style="padding:14px 4px">${S.list.all ? "Nijedan posao ne odgovara pretrazi." : "Još nema poslova."}</div>`;
+  let last = "", out = "";
+  for (const j of S.jobs){
+    const label = dayLabel(j.created);
+    if (label !== last){ out += `<div class="dayh">${label}</div>`; last = label; }
     const [l,c]=STATUS[j.status]||[j.status,""]; const d=new Date(j.created*1000);
-    return `<button data-id="${j.id}" class="${S.job&&S.job.id===j.id?"on":""}"><div class="t" title="${esc(j.filename)}">${j.hot?'<span class="chip info" style="margin-right:6px;font-size:10.5px;padding:1px 6px">HOT</span>':""}${esc(j.filename)}</div>
-      <div class="m"><span>${d.toLocaleDateString("sr-RS")} ${d.toLocaleTimeString("sr-RS",{hour:"2-digit",minute:"2-digit"})} · ${esc(j.profile.name.split("·")[0].trim())}</span><span class="chip ${c}">${l}</span></div></button>`; }).join("");
+    out += `<button data-id="${j.id}" class="${S.job&&S.job.id===j.id?"on":""}">
+      <div class="t" title="${esc(j.filename)}">${esc(j.filename)}</div>
+      <div class="m"><span>${d.toLocaleTimeString("sr-Latn-RS",{hour:"2-digit",minute:"2-digit"})} · ${esc(j.profile.printshop || j.profile.name)}${/^\d+$/.test(j.job_number)?` · #${esc(j.job_number)}`:""}${j.hot?' · <b style="color:var(--blue-ink)">HOT</b>':""}</span><span class="chip ${c}">${l}</span></div>
+      ${j.status==="failed" && j.error ? `<div class="small" style="color:var(--bad);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(j.error)}</div>` : ""}</button>`;
+  }
+  if (S.list.total > S.jobs.length) out += `<button class="more" data-more="1">Prikaži još (${S.list.total - S.jobs.length})</button>`;
+  return out;
 }
 async function upload(f){
   const prof = $("#prof").value;
@@ -392,7 +444,7 @@ async function upload(f){
   }catch(e){ toast(e.message, true); renderJobs(); }
 }
 async function openJob(id){
-  try{ S.job = (await api("GET","/api/jobs/"+id)).job; S.page=0; S.sel={}; S.exportForm={}; S.vw.hidden=new Set(); S.vw.mode="sep"; renderJobs(); watch(); }catch(e){ toast(e.message,true); }
+  try{ S.job = (await api("GET","/api/jobs/"+id)).job; S.page=0; S.sel={}; S.exportForm={}; S.vw.hidden=new Set(); S.vw.mode="sep"; S.vw.scale=1; renderJobs(); watch(); }catch(e){ toast(e.message,true); }
 }
 function watch(){
   clearTimeout(S.poll);
@@ -446,16 +498,18 @@ function resultHtml(j){
       <div class="st"><b>${pct(ch.mean)}</b><br>prosek<br>max ${pct(ch.max)}</div></div>`;
   }).join("");
   const f = S.exportForm;
-  const jobId = f.job_id ?? (p.job_id || ""), side = f.side ?? (p.side || "Front");
+  const jobId = f.job_id ?? (j.job_number && /^\d+$/.test(j.job_number) ? j.job_number : (p.job_id || ""));
   const canExport = j.profile.export_enabled;
   return `${tabs}
     ${viewerHtml(j, page, p, ruler, grid)}
     ${warnings}
     <h3 style="font-size:14px;margin:18px 0 0">Separacije u izvozu <span class="small muted" style="font-weight:400">— štiklirane idu u ${outputs(p).join(" + ")}</span></h3>
     <div class="seps">${seps}</div>
+    <div class="small" style="margin-top:14px;color:var(--ink-2)">Strana tabaka: <b style="color:var(--ink)">${esc(j.auto_side||"Front")}</b>
+      <span class="muted">— ${j.side_from_name ? "prepoznato iz imena fajla" : "kao PressPerCent (Back samo ako ime fajla sadrži back, naličje ili poleđina)"}</span></div>
     <div class="export">
       ${p.xml_enabled !== false ? `<label class="f">Job ID<input type="text" id="xjob" maxlength="64" value="${esc(jobId)}"></label>` : `<div class="small muted" style="align-self:center">PPF dobija ime po PDF fajlu i broju strane.</div>`}
-      <label class="f">Strana<select id="xside"><option ${side==="Front"?"selected":""}>Front</option><option ${side==="Back"?"selected":""}>Back</option></select></label>
+      <div></div>
       <button class="btn" id="xbtn" ${canExport?"":"disabled"}>Izvezi ${outputs(p).join(" + ")}</button>
     </div>
     ${canExport?"":`<div class="note warn" style="margin-top:10px">Izvoz nije omogućen u profilu ovog posla.</div>`}
@@ -468,14 +522,14 @@ function bindResult(j){
   document.querySelectorAll("[data-page]").forEach(b=>b.onclick=()=>{ S.page=+b.dataset.page; renderDetail(); });
   document.querySelectorAll("[data-ch]").forEach(cb=>cb.onchange=()=>{ cb.checked?sel.add(cb.dataset.ch):sel.delete(cb.dataset.ch); cb.closest(".sep").classList.toggle("off",!cb.checked); });
   $("#xjob") && ($("#xjob").oninput = e => S.exportForm.job_id = e.target.value);
-  $("#xside").onchange = e => S.exportForm.side = e.target.value;
+
   $("#xbtn").onclick = async () => {
     const selections = {}; for (const pg of j.result.pages) selections[String(pg.page)] = [...selFor(pg)];
     const missing = j.result.pages.filter(pg=>!selections[String(pg.page)].length).map(pg=>pg.page);
     if (missing.length) return toast("Izaberite bar jednu separaciju na strani: " + missing.join(", "), true);
     const btn=$("#xbtn"); btn.disabled=true; btn.textContent="Pravim izvoz…";
     try{
-      const r = await api("POST",`/api/jobs/${j.id}/export`,{selections, job_id:$("#xjob") ? $("#xjob").value : "", side:$("#xside").value});
+      const r = await api("POST",`/api/jobs/${j.id}/export`,{selections, job_id:$("#xjob") ? $("#xjob").value : "", side:"auto"});
       if (window.pywebview){
         const s = await window.pywebview.api.save_export(j.id, r.name, r.suggested);
         if (s.path){ $("#xres").innerHTML = `<div class="note info" style="margin-top:10px">Sačuvano: <span class="mono">${esc(s.path)}</span> · <a href="#" id="showf">Prikaži u folderu</a></div>`; $("#showf").onclick=e=>{e.preventDefault(); window.pywebview.api.show_in_folder(s.path);}; }
@@ -495,24 +549,27 @@ const inkCss = c => c.name==="Yellow" ? "#f2d600" : rgbCss(c.rgb);
 function viewerHtml(j, page, p, ruler, grid){
   const v = S.vw, views = hasViews(page);
   if (!views) v.mode = "comp";
-  const chips = page.channels.map(c=>`<button class="vchip ${v.hidden.has(c.name)?"off":""}" data-vch="${esc(c.name)}" title="Klik: uključi/isključi · dupli klik: samo ova">
+  const chips = page.channels.map(c=>`<button class="vchip ${v.hidden.has(c.name)?"off":""}" data-vch="${esc(c.name)}" title="Klik: uključi/isključi · dupli klik: samo ova boja">
       <span class="sw" style="background:${inkCss(c)}"></span>${esc(c.name)} <small>${pct(c.mean)}</small></button>`).join("");
   return `<div class="viewer ${v.full?"full":""}" id="viewer">
     <div class="vbar">
       <div class="seg">${views?`<button data-vmode="sep" class="${v.mode==="sep"?"on":""}">Separacije</button>`:""}<button data-vmode="comp" class="${v.mode==="comp"?"on":""}">Kompozit</button></div>
-      <div class="vchips" style="${v.mode==="sep"?"":"visibility:hidden"}">${chips}<button class="vchip" data-vall="1" title="Prikaži sve">Sve</button></div>
       <span class="grow"></span>
-      <div class="seg"><button data-zoom="fit" class="${v.zoom==="fit"?"on":""}">Ceo tabak</button><button data-zoom="1" class="${v.zoom==="1"?"on":""}">100%</button><button data-zoom="2" class="${v.zoom==="2"?"on":""}">200%</button></div>
+      <div class="seg"><button data-zoomstep="-1" title="Umanji">−</button><button id="vzoom" title="Ceo tabak" style="min-width:58px;text-align:center">100%</button><button data-zoomstep="1" title="Uvećaj">+</button></div>
+      <div class="seg"><button id="vfit">Ceo tabak</button></div>
+      <div class="seg"><button id="vlensbtn" class="${v.lens?"on":""}" title="Lupa (taster L)">🔍 Lupa</button></div>
       <div class="seg"><button id="vfull">${v.full?"Zatvori":"Ceo ekran"}</button></div>
+      <div class="vchips" style="${v.mode==="sep"?"":"display:none"}">${chips}<button class="vchip" data-vall="1" title="Prikaži sve">Sve</button></div>
     </div>
     <div class="vstage" id="vstage"><div class="vinner" id="vinner">${ruler}
-      <div style="position:relative">
-        ${v.mode==="sep" ? `<canvas id="vcanvas"></canvas>` : `<img id="vcomp" src="${fileUrl(j.id,page.thumbnail)}" alt="Kompozit">`}
+      <div style="position:relative" id="vmediawrap">
+        ${v.mode==="sep" ? `<canvas id="vcanvas"></canvas>` : `<img id="vcomp" src="${fileUrl(j.id, page.view || page.thumbnail)}" alt="Kompozit" draggable="false">`}
         <svg class="grid" viewBox="0 0 100 100" preserveAspectRatio="none" style="top:0;height:100%">${grid}</svg>
       </div></div></div>
     <div class="vfoot"><span>${p.zone_count} zona × ${String(p.zone_width_mm).replace(".",",")} mm</span><span>PDF ${page.source_mm.map(x=>x.toFixed(1).replace(".",",")).join(" × ")} mm</span>
       <span>${esc(j.result.renderer)}, ${j.result.render_dpi} → ${j.result.coverage_dpi} dpi</span>
-      <span>${views ? "Pređite mišem preko tabaka za pokrivenost zone i boje na tom mestu." : "Pregled po separacijama postoji za poslove obrađene u verziji 1.2 i novijim — pokrenite obradu ponovo."}</span></div>
+      <span>${views ? "Točkić: zum oko kursora · prevlačenje: pomeranje · L: lupa · pređite mišem za pokrivenost" : "Pregled po separacijama postoji za poslove obrađene u verziji 1.2 i novijim — pokrenite obradu ponovo."}</span></div>
+    <canvas class="vlens" id="vlens" width="260" height="260"></canvas>
     <div class="vtip" id="vtip"></div></div>`;
 }
 async function loadPlanes(j, page){
@@ -533,32 +590,46 @@ async function loadPlanes(j, page){
 function composite(canvas, planes, hidden){
   const w = planes[0].w, h = planes[0].h; canvas.width = w; canvas.height = h;
   const cx = canvas.getContext("2d"), out = cx.createImageData(w, h), d = out.data, n = w*h;
-  const r = new Float32Array(n).fill(1), gg = new Float32Array(n).fill(1), b = new Float32Array(n).fill(1);
+  d.fill(255);
   for (const pl of planes){
     if (hidden.has(pl.name)) continue;
-    const [cr, cg, cb] = pl.rgb, g = pl.g;
-    for (let i=0; i<n; i++){ const a = 1 - g[i]/255; if (a > 0){ r[i] *= 1 - a*(1-cr); gg[i] *= 1 - a*(1-cg); b[i] *= 1 - a*(1-cb); } }
+    // per-ink lookup: gray value (255 = no ink) -> multiplier for R, G, B
+    const lut = [0,1,2].map(ch => { const t = new Uint16Array(256); for (let g=0; g<256; g++){ const a = 1 - g/255; t[g] = Math.round(256*(1 - a*(1 - pl.rgb[ch]))); } return t; });
+    const [lr, lg, lb] = lut, g = pl.g;
+    for (let i=0, k=0; i<n; i++, k+=4){ const v = g[i]; if (v !== 255){ d[k] = (d[k]*lr[v])>>8; d[k+1] = (d[k+1]*lg[v])>>8; d[k+2] = (d[k+2]*lb[v])>>8; } }
   }
-  for (let i=0, k=0; i<n; i++, k+=4){ d[k]=r[i]*255; d[k+1]=gg[i]*255; d[k+2]=b[i]*255; d[k+3]=255; }
   cx.putImageData(out, 0, 0);
 }
-function sizeViewer(){
-  const inner = $("#vinner"), stage = $("#vstage"); if (!inner || !stage) return;
-  const media = $("#vcanvas") || $("#vcomp"); if (!media) return;
-  const base = media.tagName === "CANVAS" ? media.width : (media.naturalWidth || 1600);
-  const tall = media.tagName === "CANVAS" ? media.height : (media.naturalHeight || 1200);
-  if (S.vw.zoom === "fit") {   // whole sheet visible: limited by width and by height
-    const availH = (S.vw.full ? stage.clientHeight : window.innerHeight * 0.68) - 26;
-    const w = Math.min(stage.clientWidth, availH * base / Math.max(tall, 1));
-    inner.style.width = Math.max(200, Math.floor(w)) + "px"; return;
-  }
-  inner.style.width = (base * Number(S.vw.zoom)) + "px";
+function viewMedia(){ return $("#vcanvas") || $("#vcomp"); }
+function sourceSize(){ const m = viewMedia(); if (!m) return [1,1]; return m.tagName==="CANVAS" ? [m.width||1, m.height||1] : [m.naturalWidth||1, m.naturalHeight||1]; }
+function fitWidth(){
+  const stage = $("#vstage"); if (!stage) return 800;
+  const [w, h] = sourceSize();
+  const availH = (S.vw.full ? stage.clientHeight : window.innerHeight * 0.64) - 26;
+  return Math.max(200, Math.floor(Math.min(stage.clientWidth - 2, availH * w / h)));
 }
+function maxScale(){ const [w] = sourceSize(); return Math.max(1, (w * 2) / fitWidth()); }   // up to 2 screen px per source px
+function applyZoom(scale, cx, cy){
+  const stage = $("#vstage"), inner = $("#vinner"); if (!stage || !inner) return;
+  const old = inner.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+  scale = Math.min(maxScale(), Math.max(1, scale));
+  const px = cx == null ? sr.width/2 : cx - sr.left, py = cy == null ? sr.height/2 : cy - sr.top;
+  const fx = (px + stage.scrollLeft) / Math.max(old.width, 1), fy = (py + stage.scrollTop) / Math.max(old.height, 1);
+  S.vw.scale = scale;
+  inner.style.width = Math.round(fitWidth() * scale) + "px";
+  const nr = inner.getBoundingClientRect();
+  stage.scrollLeft = fx * nr.width - px; stage.scrollTop = fy * nr.height - py;
+  stage.classList.toggle("pan", scale > 1.001);
+  const z = $("#vzoom"); if (z) z.textContent = Math.round(scale * 100) + "%";
+}
+function sizeViewer(){ applyZoom(S.vw.scale || 1); }
 async function bindViewer(j, page, p){
-  const v = S.vw, tip = $("#vtip");
+  const v = S.vw, tip = $("#vtip"), lens = $("#vlens"), stage = $("#vstage");
   document.querySelectorAll("[data-vmode]").forEach(b=>b.onclick=()=>{ v.mode=b.dataset.vmode; renderDetail(); });
-  document.querySelectorAll("[data-zoom]").forEach(b=>b.onclick=()=>{ v.zoom=b.dataset.zoom; document.querySelectorAll("[data-zoom]").forEach(x=>x.classList.toggle("on",x===b)); sizeViewer(); });
+  document.querySelectorAll("[data-zoomstep]").forEach(b=>b.onclick=()=>applyZoom((v.scale||1) * (b.dataset.zoomstep > 0 ? 1.5 : 1/1.5)));
+  $("#vfit").onclick = $("#vzoom").onclick = () => applyZoom(1);
   $("#vfull").onclick = () => { v.full=!v.full; renderDetail(); };
+  $("#vlensbtn").onclick = () => { v.lens = !v.lens; $("#vlensbtn").classList.toggle("on", v.lens); if (!v.lens) lens.style.display = "none"; };
   let clickTimer = null;
   document.querySelectorAll("[data-vch]").forEach(b=>{
     b.onclick = () => { clearTimeout(clickTimer); clickTimer = setTimeout(()=>{ const n=b.dataset.vch; v.hidden.has(n)?v.hidden.delete(n):v.hidden.add(n); b.classList.toggle("off"); redraw(); }, 220); };
@@ -568,34 +639,75 @@ async function bindViewer(j, page, p){
   const all = document.querySelector("[data-vall]"); if (all) all.onclick = () => { v.hidden = new Set(); document.querySelectorAll("[data-vch]").forEach(x=>x.classList.remove("off")); redraw(); };
   let planes = null;
   const canvas = $("#vcanvas");
-  async function redraw(){ if (canvas && planes) composite(canvas, planes, v.hidden); }
+  function redraw(){ if (canvas && planes) composite(canvas, planes, v.hidden); }
   if (hasViews(page)){
     try{ planes = await loadPlanes(j, page); }catch(e){ toast("Pregled separacija nije učitan.", true); }
-    if (canvas && planes){ composite(canvas, planes, v.hidden); }
+    redraw();
   }
-  sizeViewer();
   const comp = $("#vcomp"); if (comp && !comp.complete) comp.onload = sizeViewer;
-  const media = canvas || comp;
-  if (!media) return;
+  sizeViewer();
+  const media = viewMedia(); if (!media) return;
+
+  // wheel zoom around the cursor, drag to pan
+  stage.onwheel = e => { e.preventDefault();
+    if (v.lens && e.shiftKey){ v.lensZoom = Math.min(6, Math.max(1, (v.lensZoom||2) * (e.deltaY < 0 ? 1.25 : 0.8))); showInfo(e); return; }
+    applyZoom((v.scale||1) * Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY); showInfo(e); };
+  let drag = null;
+  stage.onmousedown = e => { if (e.button !== 0) return; drag = {x:e.clientX, y:e.clientY, l:stage.scrollLeft, t:stage.scrollTop, moved:false}; stage.classList.add("dragging"); e.preventDefault(); };
+  window.onmouseup = () => { drag = null; stage.classList.remove("dragging"); };
+  window.onmousemove = e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 2) drag.moved = true; stage.scrollLeft = drag.l - dx; stage.scrollTop = drag.t - dy; };
+
   const zc = p.zone_count, zoneNo = i => p.reverse_zones ? zc - i : i + 1, valIdx = i => p.reverse_zones ? zc - 1 - i : i;
-  media.onmousemove = e => {
+  function showInfo(e){
     const r = media.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
-    if (fx<0||fx>=1||fy<0||fy>=1) return tip.style.display="none";
+    if (fx<0||fx>=1||fy<0||fy>=1){ tip.style.display="none"; lens.style.display="none"; return; }
     const zi = Math.min(zc-1, Math.floor(fx*zc));
-    let rows = page.channels.filter(c=>!v.hidden.has(c.name) || v.mode!=="sep").map(c=>{
+    const rows = page.channels.filter(c=>!v.hidden.has(c.name) || v.mode!=="sep").map(c=>{
       let here = "";
       if (planes){ const pl = planes.find(q=>q.name===c.name); const x = Math.floor(fx*pl.w), y = Math.floor(fy*pl.h); here = pct(1 - pl.g[y*pl.w + x]/255); }
       return `<div class="r"><span><span class="sw" style="background:${inkCss(c)};display:inline-block;margin-right:6px;border-radius:2px"></span>${esc(c.name)}</span><span>zona <b>${pct(c.values[valIdx(zi)])}</b>${here?` · ovde ${here}`:""}</span></div>`;
     }).join("");
     tip.innerHTML = `<b>Zona ${zoneNo(zi)}</b>${rows}`;
     tip.style.display = "block";
-    const tx = Math.min(window.innerWidth - tip.offsetWidth - 10, e.clientX + 16), ty = Math.min(window.innerHeight - tip.offsetHeight - 10, e.clientY + 16);
-    tip.style.left = tx + "px"; tip.style.top = ty + "px";
-  };
-  media.onmouseleave = () => tip.style.display = "none";
+    let lx = e.clientX, ly = e.clientY;
+    if (v.lens){
+      const [sw, sh] = sourceSize(), mag = v.lensZoom || 2, L = lens.width, srcSpan = L / mag;
+      const sx = fx * sw - srcSpan/2, sy = fy * sh - srcSpan/2, cx = lens.getContext("2d");
+      cx.save(); cx.clearRect(0,0,L,L); cx.beginPath(); cx.arc(L/2, L/2, L/2-2, 0, Math.PI*2); cx.clip();
+      cx.fillStyle = "#fff"; cx.fillRect(0,0,L,L); cx.imageSmoothingEnabled = mag < 3;
+      cx.drawImage(media, sx, sy, srcSpan, srcSpan, 0, 0, L, L);
+      // zone borders inside the lens
+      const zwSrc = sw / zc; cx.strokeStyle = "rgba(20,99,214,.55)"; cx.lineWidth = 1;
+      for (let z = Math.floor(sx / zwSrc); z <= Math.ceil((sx + srcSpan) / zwSrc); z++){ const x = (z * zwSrc - sx) * mag; cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, L); cx.stroke(); }
+      cx.strokeStyle = "rgba(0,0,0,.6)"; cx.beginPath(); cx.moveTo(L/2-8, L/2); cx.lineTo(L/2+8, L/2); cx.moveTo(L/2, L/2-8); cx.lineTo(L/2, L/2+8); cx.stroke();
+      cx.restore();
+      lens.style.display = "block";
+      const right = e.clientX + 24 + L < window.innerWidth;                 // lens right of the cursor if it fits
+      const left = right ? e.clientX + 24 : e.clientX - 24 - L;
+      const top = Math.max(8, Math.min(window.innerHeight - L - 8, e.clientY - L/2));
+      lens.style.left = left + "px"; lens.style.top = top + "px";
+      v._lensBox = {left, top, right};
+      tip.innerHTML += `<div class="small" style="opacity:.7;margin-top:4px">Lupa ${mag.toFixed(1).replace(".",",")}× · Shift + točkić menja uvećanje</div>`;
+    }
+    let tx, ty;
+    if (v.lens && v._lensBox){            // info under the lens (or above it near the bottom edge)
+      const b = v._lensBox, L = lens.width;
+      tx = b.left + L/2 - tip.offsetWidth/2;
+      ty = b.top + L + 10 + tip.offsetHeight < window.innerHeight ? b.top + L + 10 : b.top - tip.offsetHeight - 10;
+    } else { tx = lx + 16; ty = ly + 16; }
+    tx = Math.min(window.innerWidth - tip.offsetWidth - 10, tx); ty = Math.min(window.innerHeight - tip.offsetHeight - 10, ty);
+    tip.style.left = Math.max(8, tx) + "px"; tip.style.top = Math.max(8, ty) + "px";
+  }
+  media.onmousemove = e => { if (!drag || !drag.moved) showInfo(e); };
+  media.onmouseleave = () => { tip.style.display = "none"; lens.style.display = "none"; };
 }
 window.addEventListener("resize", sizeViewer);
-document.addEventListener("keydown", e => { if (e.key==="Escape" && S.vw.full){ S.vw.full=false; renderDetail(); } });
+document.addEventListener("keydown", e => {
+  if (e.target.matches("input,textarea,select")) return;
+  if (e.key==="Escape" && S.vw.full){ S.vw.full=false; renderDetail(); }
+  if ((e.key==="l" || e.key==="L") && $("#vlensbtn")) $("#vlensbtn").click();
+});
 
 /* ---------------- profiles ---------------- */
 const NUM = (k,label,hint,step="0.1") => ({k,label,hint,type:"num",step});
@@ -610,7 +722,6 @@ const FIELDS = [
   ["Izlaz za mašinu",[
     {k:"xml_enabled",label:"XML + PNG",type:"chk",hint:"Za mašine sa DI-Plot konzolom, npr. Birograf."},
     {k:"ppf_enabled",label:"PPF",type:"chk",hint:"Za mašine koje čitaju PPF, npr. Eurodream (isto što pravi PressPerCent)."},
-    {k:"side",label:"Strana tabaka",type:"sel",opts:[["","—"],["Front","Front (lice)"],["Back","Back (poleđina)"]],hint:"Upisuje se u izlazni fajl. Obično Front."},
     {k:"signature",label:"Signature",type:"text",show:isXml,hint:"Oznaka koju Birograf konzola očekuje u XML-u. U uzorcima: SIG1."},
     {k:"sheet",label:"Sheet",type:"text",show:isXml,hint:"Oznaka tabaka u XML-u. U uzorcima: S1."},
     {k:"preview_url_prefix",label:"Adresa PNG pregleda (Preview URL prefiks)",type:"text",wide:true,show:isXml,
@@ -622,6 +733,8 @@ const FIELDS = [
   ["Rezolucija obrade",[{k:"render_dpi",label:"Radna rezolucija",type:"sel",num:true,opts:[[300,"300 dpi"],[600,"600 dpi (preporučeno)"],[1200,"1200 dpi"]]},
     {k:"preview_dpi",label:"PNG pregled za konzolu",type:"sel",num:true,opts:[[25,"25 dpi"],[50,"50 dpi"],[72,"72 dpi"],[75,"75 dpi"],[150,"150 dpi"]],show:isXml}],"adv"],
   ["Tehnički podaci u izlaznom fajlu",[
+    {k:"side",label:"Podrazumevana strana tabaka",type:"sel",opts:[["Front","Front (lice)"],["Back","Back (poleđina)"]],
+     hint:"PressPerCent svaku stranu PDF-a upisuje kao Front. Back se bira sam ako ime fajla sadrži back, naličje ili poleđina."},
     {k:"job_id",label:"Rezervni Job ID",type:"text",show:isXml,hint:"Broj posla se uzima iz imena PDF-a (npr. …_26527_…). Ovo se koristi samo ako u imenu nema broja."},
     {k:"ppf_dpi",label:"PPF rezolucija pregleda",type:"sel",num:true,show:isPpf,opts:[[25.4,"25,4 dpi"],[50.8,"50,8 dpi (PressPerCent)"],[101.6,"101,6 dpi"]],hint:"PressPerCent uvek piše 50,8. Ne menjati."},
     {k:"ppf_sheet_lay",label:"PPF SheetLay",type:"sel",show:isPpf,opts:[["Left","Left"],["Right","Right"]],hint:"PressPerCent piše Left. Ne menjati."}],"adv"],
@@ -662,7 +775,7 @@ function formHtml(){
 }
 function liveCheck(){
   const p = S.profile, out = [];
-  const req = {machine:"Mašina",plate_width_mm:"Širina ploče",plate_height_mm:"Visina ploče",zone_count:"Broj zona",zone_width_mm:"Širina zone",area_height_mm:"Visina zone boje",shift_x_mm:"Pomak X",top_mm:"Gornji ofset",side:"Strana"};
+  const req = {machine:"Mašina",plate_width_mm:"Širina ploče",plate_height_mm:"Visina ploče",zone_count:"Broj zona",zone_width_mm:"Širina zone",area_height_mm:"Visina zone boje",shift_x_mm:"Pomak X",top_mm:"Gornji ofset"};
   if (p.xml_enabled !== false) Object.assign(req, {signature:"Signature", sheet:"Sheet"});
   if (p.xml_enabled === false && !p.ppf_enabled) out.push("izlaz (XML ili PPF)");
   for (const [k,l] of Object.entries(req)) if (p[k]===null||p[k]===undefined||p[k]==="") out.push(l);

@@ -306,7 +306,7 @@ class HotFolders:
                 warnings.append(f"Str. {page['page']}: isključeno {', '.join(skipped)}.")
             warnings += [w for w in page.get("warnings", []) if not w.startswith("Moguće separacije dorade")]
         job_id = job_id_from_name(job["filename"])
-        side = profile.get("side") or "Front"
+        side = self.app.side_for(job)
         out = item["out"]
         out.mkdir(parents=True, exist_ok=True)
         made = []

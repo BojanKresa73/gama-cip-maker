@@ -140,7 +140,7 @@ def coverage(a, mm, p):
     return values
 
 
-def make_preview(image, mm, p, dpi):
+def make_preview(image, mm, p, dpi, resample=Image.Resampling.BICUBIC):
     width = p["zone_count"] * p["zone_width_mm"]
     out_size = (round(width * dpi / 25.4), round(p["area_height_mm"] * dpi / 25.4))
     if out_size[0] * out_size[1] > 120_000_000:
@@ -149,7 +149,7 @@ def make_preview(image, mm, p, dpi):
     # Same physical mapping as coverage; white outside page.
     sx, sy = image.width / mm[0], image.height / mm[1]
     affine = (width / out_size[0] * sx, 0, -left * sx, 0, p["area_height_mm"] / out_size[1] * sy, -top * sy)
-    return image.transform(out_size, Image.Transform.AFFINE, affine, resample=Image.Resampling.BICUBIC, fillcolor="white")
+    return image.transform(out_size, Image.Transform.AFFINE, affine, resample=resample, fillcolor="white")
 
 
 def ppf_size(p, dpi):
@@ -177,11 +177,11 @@ def ppf_plane(gray, mm, p, dpi, factor=3, origin=None):
     return big.resize(size, Image.Resampling.BOX)
 
 
-VIEW_MAX_PIXELS = 4_000_000
+VIEW_MAX_PIXELS = 14_000_000
 
 
-def view_dpi(p, wanted=50):
-    """Resolution of the on-screen separation views: 50 dpi, lower for very large plates."""
+def view_dpi(p, wanted=100):
+    """Resolution of the on-screen plate views (0.25 mm per pixel), lower for very large plates."""
     width_in = p["zone_count"] * p["zone_width_mm"] / 25.4
     height_in = p["area_height_mm"] / 25.4
     limit = (VIEW_MAX_PIXELS / max(width_in * height_in, 1e-6)) ** 0.5
@@ -244,18 +244,19 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
             continue
         rgb = colors.get(name, [0.5, 0.5, 0.5])
         # Small separation preview is for viewing; computation above uses full 150 dpi plane.
-        preview = Image.fromarray(np.uint8(np.clip((1 - a) * 255, 0, 255)), "L").convert("RGB")
+        # One gray raster (255 = no ink) for the small thumbnail, the plate view and the PPF plane.
+        preview = Image.fromarray(np.uint8(np.clip((1 - a) * 255, 0, 255)), "L")
         thumb = make_preview(preview, mm, p, 25)
         thumb_name = f"{stem}.sep-{n + 1}.png"
         thumb.save(target / thumb_name)
         channel = {"name": name, "values": values.tolist(), "mean": float(values.mean()), "max": float(values.max()), "rgb": rgb, "thumbnail": thumb_name}
         # Plate view for the program's separation viewer: same zone-area geometry as the composite.
-        view = make_preview(preview.convert("L"), mm, p, view_dpi(p))
-        channel["view"] = f"{stem}.view-{n + 1}.png"
-        view.save(target / channel["view"], optimize=False, compress_level=3)
+        view = make_preview(preview, mm, p, view_dpi(p), Image.Resampling.BILINEAR)
+        channel["view"] = f"{stem}.view-{n + 1}.jpg"
+        view.save(target / channel["view"], quality=92, subsampling=0)
         del view
         if p.get("ppf_enabled"):
-            plane = ppf_plane(preview.convert("L"), mm, p, p.get("ppf_dpi", 50.8))
+            plane = ppf_plane(preview, mm, p, p.get("ppf_dpi", 50.8))
             channel["ppf"] = f"{stem}.ppf-{n + 1}.png"
             plane.save(target / channel["ppf"])
             del plane
@@ -272,6 +273,9 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
         raise ValueError("U izabranom području zona nema boje.")
     with Image.open(composites[0]) as im:
         rgb_image = orient_image(im.convert("RGB"), p)
+    composite_view = make_preview(rgb_image, mm, p, view_dpi(p), Image.Resampling.BILINEAR)
+    composite_view.save(target / (stem + ".view.jpg"), quality=90)
+    del composite_view
     preview = make_preview(rgb_image, mm, p, p["preview_dpi"])
     png = stem + ".PNG"
     preview.save(target / png, dpi=(p["preview_dpi"], p["preview_dpi"]))
@@ -281,6 +285,7 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
     preview.save(target / thumbnail)
     page = {"stem": stem, "source_mm": list(source_mm), "oriented_mm": list(mm), "channels": channels, "warnings": warnings, "png": png, "preview_size": size, "thumbnail": thumbnail}
     page["view_dpi"] = view_dpi(p)
+    page["view"] = stem + ".view.jpg"
     if "ink_box_mm" in p:
         page["ink_box_mm"] = p["ink_box_mm"]
         page["placement_mm"] = list(placement(mm, p))
