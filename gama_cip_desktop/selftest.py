@@ -17,7 +17,12 @@ def run(report_path):
     from .sample_pdf import build
     from .store import engine_settings, seed_folder
 
+    from .updater import ssl_contexts
     lines = ["Ghostscript: " + ghostscript()]
+    checks = [name for name, _ in ssl_contexts()]
+    if checks[:2] != ["Windows", "certifi"]:
+        raise AssertionError(f"HTTPS provera sertifikata nije potpuna: {checks}")
+    lines.append("HTTPS: " + ", ".join(checks))
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         for profile_id, size in (("birograf-rapida105-1060x795", (1060, 795)), ("eurodream-745x605", (745, 605)),

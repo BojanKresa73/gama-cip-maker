@@ -145,5 +145,37 @@ class Updates(unittest.TestCase):
         self.assertEqual(again.updater.updated_from, "1.0.0")
 
 
+
+class Certificates(unittest.TestCase):
+    def test_falls_back_when_certificate_check_fails(self):
+        """A PC whose certificate store lacks GitHub's root (or antivirus HTTPS scanning) must still update."""
+        import ssl
+        from unittest import mock
+        from urllib.error import URLError
+        import gama_cip_desktop.updater as up
+        names = [n for n, _ in up.ssl_contexts()]
+        self.assertEqual(names[0], "Windows")
+        self.assertIn("certifi", names)
+        calls = []
+
+        def fake(req, timeout=30, context=None):
+            calls.append(context)
+            if len(calls) == 1:
+                raise URLError(ssl.SSLCertVerificationError("certificate verify failed: unable to get local issuer certificate"))
+            return "odgovor"
+        u = up.Updater.__new__(up.Updater)
+        u.current = "1.0.0"
+        with mock.patch.object(up, "urlopen", fake):
+            self.assertEqual(u._open("https://api.github.com/repos/x/y/releases/latest"), "odgovor")
+        self.assertEqual(len(calls), 2)
+
+        def always(req, timeout=30, context=None):
+            raise URLError(ssl.SSLCertVerificationError("certificate verify failed"))
+        with mock.patch.object(up, "urlopen", always):
+            with self.assertRaises(ValueError) as err:
+                u._open("https://api.github.com/repos/x/y/releases/latest")
+        self.assertIn("antivirus", str(err.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
+import ssl
 
 LOG = logging.getLogger("gama.cip.update")
 REPOSITORY = "BojanKresa73/gama-cip-maker-instaler"
@@ -32,6 +33,31 @@ INSTALLER = re.compile(r"^GamaCIPMaker-Setup-(\d+(?:\.\d+){1,3})\.exe$")
 def parse_version(text):
     numbers = re.findall(r"\d+", str(text))
     return tuple(int(n) for n in numbers[:4]) + (0,) * (4 - min(len(numbers), 4))
+
+
+def ssl_contexts():
+    """HTTPS certificate checks to try, in order.
+
+    1. Windows' own certificate check (truststore): the same trust as Edge/Chrome, including
+       roots Windows downloads on demand and certificates of antivirus HTTPS scanning (Avast, ESET…).
+    2. Mozilla's root list (certifi) plus the Windows certificate store.
+    3. Python's default.
+    """
+    out = []
+    try:
+        import truststore
+        out.append(("Windows", truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        import certifi
+        context = ssl.create_default_context(cafile=certifi.where())
+        context.load_default_certs()
+        out.append(("certifi", context))
+    except Exception:  # noqa: BLE001
+        pass
+    out.append(("python", ssl.create_default_context()))
+    return out
 
 
 class Updater:
@@ -94,7 +120,20 @@ class Updater:
             raise ValueError(f"Nedozvoljena adresa za ažuriranje: {parts.scheme}://{parts.hostname}")
         req = Request(url, headers={"User-Agent": f"GamaCIPMaker/{self.current}", "Accept": "application/octet-stream"
                                     if "/releases/assets/" in url else "application/vnd.github+json"})
-        return urlopen(req, timeout=timeout)
+        if parts.scheme != "https":
+            return urlopen(req, timeout=timeout)
+        last = None
+        for name, context in ssl_contexts():
+            try:
+                return urlopen(req, timeout=timeout, context=context)
+            except Exception as exc:  # noqa: BLE001
+                reason = getattr(exc, "reason", exc)
+                if not isinstance(reason, ssl.SSLError):
+                    raise
+                LOG.warning("HTTPS provera sertifikata (%s) nije uspela: %s", name, reason)
+                last = exc
+        raise ValueError("Veza sa GitHub-om nije bezbedno potvrđena (sertifikat). Ako antivirus ili firma proverava HTTPS "
+                         f"saobraćaj, dozvolite program. Detalji: {getattr(last, 'reason', last)}")
 
     def check(self):
         """Ask GitHub for the newest release; returns True if a newer installer exists."""
