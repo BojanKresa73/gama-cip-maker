@@ -20,7 +20,8 @@ def run(report_path):
     lines = ["Ghostscript: " + ghostscript()]
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
-        for profile_id, size in (("birograf-rapida105-1060x795", (1060, 795)), ("eurodream-745x605", (745, 605))):
+        for profile_id, size in (("birograf-rapida105-1060x795", (1060, 795)), ("eurodream-745x605", (745, 605)),
+                                 ("simbol-745x605", (745, 605)), ("proof-1030x790", (1030, 790))):
             p = engine_settings(json.loads((seed_folder() / f"{profile_id}.json").read_text(encoding="utf-8")))
             pdf = root / f"{profile_id}.pdf"
             build(pdf, *size)
@@ -32,7 +33,7 @@ def run(report_path):
             archive = export_zip(result, root / profile_id, {"1": names}, "TEST", "Front", "selftest.pdf")
             with zipfile.ZipFile(archive) as z:
                 files = z.namelist()
-            want = ".xml" if p.get("xml_enabled") else ".PPF"
+            want = ".xml" if p.get("xml_enabled") else ("_kljucevi.pdf" if p.get("report_enabled") else ".PPF")
             if not any(f.endswith(want) for f in files):
                 raise AssertionError(f"{profile_id}: nema {want} u izvozu {files}")
             lines.append(f"OK {profile_id}: {', '.join(names)} -> {want}")
@@ -72,7 +73,9 @@ def hot_test(root, report, timeout=300):
         cases = [
             (folders["Birograf"], "Kutija štanc Đorđe Čačak 26527.pdf", "b.pdf", "XML", "Kutija_stanc_Djordje_Cacak_26527_0001.xml"),
             (folders["Eurodream"], "Каталог Ђурђевак Шабац 26520.pdf", "e.pdf", "PPF", "Katalog_Djurdjevak_Sabac_26520.p0001.PPF"),
+            (folders["Tipo štampa"], "Letak Šid 26600.pdf", "t.pdf", "PDF", "Letak_Sid_26600.p0001_kljucevi.pdf"),
         ]
+        build(src / "t.pdf", 510, 400)
         for base, name, sample, _, _ in cases:
             shutil.copyfile(src / sample, base / "Ulaz" / name)
         shutil.copyfile(src / "x.pdf", folders["Birograf"] / "Ulaz" / "Pogrešan format ž.pdf")

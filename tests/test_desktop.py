@@ -48,11 +48,15 @@ class Desktop(unittest.TestCase):
 
     def test_seed_profiles_and_blockers(self):
         profiles = {p["id"]: p for p in self.call("GET", "/api/profiles")[1]["profiles"]}
-        self.assertEqual(len(profiles), 5)
-        self.assertTrue(profiles["eurodream-745x605"]["usable"])
-        self.assertTrue(profiles["birograf-rapida105-1060x795"]["usable"])
-        self.assertFalse(profiles["unagraf-745x605"]["usable"])
-        self.assertIn("Nedostaje: Mašina", profiles["unagraf-745x605"]["blockers"])
+        self.assertEqual(len(profiles), 15)   # every printshop Gama works for (Oct 2026)
+        self.assertTrue(all(p["usable"] for p in profiles.values()), {k: p["blockers"] for k, p in profiles.items() if p["blockers"]})
+        self.assertEqual({p["printshop"] for p in profiles.values()},
+                         {"Birograf", "Eurodream", "Bigraf", "Unagraf", "Zemun Plast", "No Kachi", "Jovšić", "Proof", "Publik",
+                          "Dunav", "Intranet", "3D Print", "Simbol", "Tipo štampa", "ADM Grafika"})
+        incomplete = dict(profiles["unagraf-745x605"], id="nepotpun", name="Nepotpun", machine="", area_height_mm=None)
+        saved = self.call("POST", "/api/profiles", {"profile": incomplete})[1]["profile"]
+        self.assertFalse(saved["usable"])
+        self.assertIn("Nedostaje: Mašina", saved["blockers"])
 
     def test_edit_profile_resets_verification(self):
         p = self.call("GET", "/api/profiles")[1]["profiles"]
@@ -94,7 +98,9 @@ class Desktop(unittest.TestCase):
 
     def test_rejects_non_pdf_and_incomplete_profile(self):
         self.assertEqual(self.call("POST", "/api/jobs?profile=birograf-rapida105-1060x795&name=x.pdf", raw=b"hello")[0], 400)
-        status, body = self.call("POST", "/api/jobs?profile=unagraf-745x605&name=x.pdf", raw=b"%PDF-1.4 x")
+        p = next(x for x in self.call("GET", "/api/profiles")[1]["profiles"] if x["id"] == "unagraf-745x605")
+        self.call("POST", "/api/profiles", {"profile": dict(p, id="nepotpun", name="Nepotpun", machine="")})
+        status, body = self.call("POST", "/api/jobs?profile=nepotpun&name=x.pdf", raw=b"%PDF-1.4 x")
         self.assertEqual(status, 400)
         self.assertIn("nije spreman", body["error"])
 

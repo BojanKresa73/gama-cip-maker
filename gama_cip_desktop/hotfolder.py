@@ -42,8 +42,9 @@ KEEP_CHOICES = (0, 5, 14, 30, 90)   # days; 0 = never delete
 
 
 def output_dir_name(profile):
-    xml, ppf = profile.get("xml_enabled", True), profile.get("ppf_enabled", False)
-    return "Izlaz" if xml and ppf else ("PPF" if ppf else "XML")
+    kinds = [name for name, on in (("XML", profile.get("xml_enabled", True)), ("PPF", profile.get("ppf_enabled", False)),
+                                   ("PDF", profile.get("report_enabled", False))) if on]
+    return kinds[0] if len(kinds) == 1 else "Izlaz"
 
 
 def unique(path):
@@ -74,6 +75,7 @@ class HotFolders:
         self.seq = max((e.get("seq", 0) for e in self.events), default=0)
         self.stop = threading.Event()
         self.last_clean = 0
+        self.last_shape = None
         self.settings = self._load()
         self.thread = threading.Thread(target=self._loop, daemon=True, name="cip-hotfolder")
         self.thread.start()
@@ -184,7 +186,7 @@ class HotFolders:
         if not readme.exists():
             readme.write_text(
                 "Gama United CIP Maker – hot folderi\r\n\r\n"
-                "Ubacite PDF u folder Ulaz štamparije. Program pravi XML (ili PPF) u folderu XML/PPF,\r\n"
+                "Ubacite PDF u folder Ulaz štamparije. Program pravi XML, PPF ili PDF sa ključevima u folderu XML/PPF/PDF,\r\n"
                 "a PDF premešta u Obradjeno. Ako obrada ne uspe, PDF ide u Greske zajedno sa .txt objašnjenjem.\r\n"
                 "Broj posla (Job ID) uzima se iz imena fajla: prvi samostalni broj od bar 4 cifre (npr. 26527).\r\n"
                 "Uputstvo za rad: u programu, levo u meniju „Uputstvo“.\r\n"
@@ -226,6 +228,10 @@ class HotFolders:
                 continue
             try:
                 layout = self.layout()
+                shape = tuple(sorted(str(item["base"]) + "|" + str(item["out"]) for item in layout.values()))
+                if shape != self.last_shape:   # new or changed profile: make its folders right away
+                    self.ensure_folders()
+                    self.last_shape = shape
                 if not recovered:
                     self._recover(layout)
                     recovered = True

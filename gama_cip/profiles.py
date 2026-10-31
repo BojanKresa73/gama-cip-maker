@@ -42,7 +42,17 @@ def validate(p):
         raise ValueError("Radna rezolucija mora biti 300, 600 ili 1200 dpi.")
     if type(p.get("preview_dpi")) is not int or p["preview_dpi"] not in (25, 50, 72, 75, 150):
         raise ValueError("PNG rezolucija mora biti 25, 50, 72, 75 ili 150 dpi.")
-    if p["input_mode"] not in ("plate", "sheet") or p["vertical_anchor"] not in ("top", "bottom", "ink_center"):
+    p.setdefault("preview_scope", "zone")
+    p.setdefault("preview_max_px", 0)
+    if p["preview_scope"] not in ("zone", "bitmap"):
+        raise ValueError("Obuhvat PNG pregleda mora biti „zone“ ili „bitmap“.")
+    if type(p["preview_max_px"]) is not int or not (p["preview_max_px"] == 0 or 100 <= p["preview_max_px"] <= 8000):
+        raise ValueError("Najveća veličina PNG pregleda mora biti 0 (koristi dpi) ili 100–8000 piksela.")
+    for key in ("calc_width_mm", "printable_width_mm"):
+        v = p.get(key)
+        if v is not None and (isinstance(v, bool) or not isinstance(v, (float, int)) or not math.isfinite(v) or not 0 < v <= 2500):
+            raise ValueError(f"Neispravna dimenzija: {key}")
+    if p["input_mode"] not in ("plate", "sheet", "any") or p["vertical_anchor"] not in ("top", "bottom", "ink_center", "ink_top"):
         raise ValueError("Neispravan režim ulaznog formata ili vertikalnog poravnanja.")
     if p.get("pdf_box") not in ("MediaBox", "CropBox"):
         raise ValueError("PDF okvir mora biti MediaBox ili CropBox.")
@@ -57,6 +67,18 @@ def validate(p):
         raise ValueError("Neispravan status profila.")
     p.setdefault("xml_enabled", True)
     p.setdefault("ppf_enabled", False)
+    p.setdefault("report_enabled", False)
+    if type(p["report_enabled"]) is not bool:
+        raise ValueError("Neispravno logičko polje: report_enabled")
+    if p["report_enabled"]:
+        from .keys import check_scale, curve_points, curve_for
+        p.setdefault("key_scale", {"mode": "percent"})
+        check_scale(p["key_scale"])
+        for name in ("Cyan", "Magenta", "Yellow", "Black", "Spot"):
+            curve_points(curve_for(p.get("zone_curves"), name), p["key_scale"])
+            feed = curve_for(p.get("feed_curves"), name)
+            if feed is not None and not (isinstance(feed, list) and len(feed) >= 2):
+                raise ValueError("Kriva dovoda boje mora imati vrednosti za 0 % i 100 %.")
     p.setdefault("ppf_dpi", 50.8)
     p.setdefault("ppf_sheet_lay", "Left")
     for key in ("xml_enabled", "ppf_enabled"):
@@ -66,8 +88,8 @@ def validate(p):
         raise ValueError("PPF rezolucija mora biti 25,4, 50,8 ili 101,6 dpi.")
     if p["ppf_sheet_lay"] not in ("Left", "Right"):
         raise ValueError("PPF SheetLay mora biti Left ili Right.")
-    if not (p["xml_enabled"] or p["ppf_enabled"]):
-        raise ValueError("Uključite bar jedan izlaz: XML ili PPF.")
+    if not (p["xml_enabled"] or p["ppf_enabled"] or p["report_enabled"]):
+        raise ValueError("Uključite bar jedan izlaz: XML, PPF ili PDF sa ključevima.")
     p["schema_version"] = 1
     return p
 

@@ -46,9 +46,11 @@ class HotFolder(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_layout_per_printshop(self):
-        self.assertEqual(set(self.folders), {"Birograf", "Eurodream"})   # only complete, export-enabled profiles
+        self.assertEqual(len(self.folders), 15)   # only complete, export-enabled profiles: all factory ones are
         self.assertEqual(Path(self.folders["Birograf"]["out"]).name, "XML")
         self.assertEqual(Path(self.folders["Eurodream"]["out"]).name, "PPF")
+        self.assertEqual(Path(self.folders["Simbol"]["out"]).name, "PDF")
+        self.assertEqual(Path(self.folders["Tipo štampa"]["base"]).name, "Tipo štampa")
         for f in self.folders.values():
             for sub in ("Ulaz", "Obradjeno", "Greske"):
                 self.assertTrue((Path(f["base"]) / sub).is_dir())

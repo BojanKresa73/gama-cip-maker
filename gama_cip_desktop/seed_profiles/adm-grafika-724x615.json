@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "rotation": 0,
+  "mirror_x": false,
+  "mirror_y": false,
+  "reverse_zones": false,
+  "pdf_box": "MediaBox",
+  "render_dpi": 600,
+  "coverage_dpi": 150,
+  "preview_dpi": 72,
+  "preview_scope": "zone",
+  "preview_max_px": 0,
+  "job_id": null,
+  "side": "Front",
+  "shift_x_mm": 0,
+  "top_mm": 0,
+  "bottom_mm": 0,
+  "active": true,
+  "export_enabled": true,
+  "validation_status": "unverified",
+  "ppf_dpi": 50.8,
+  "ppf_sheet_lay": "Left",
+  "hot_folder": true,
+  "id": "adm-grafika-724x615",
+  "name": "ADM Grafika · 724 × 615 · ključevi",
+  "printshop": "ADM Grafika",
+  "machine": "PressPerCent „ADM Grafika“",
+  "zone_count": 23,
+  "zone_width_mm": 32.5,
+  "area_height_mm": 550,
+  "plate_width_mm": 724,
+  "plate_height_mm": 615,
+  "input_mode": "any",
+  "vertical_anchor": "ink_top",
+  "xml_enabled": false,
+  "ppf_enabled": false,
+  "report_enabled": true,
+  "signature": null,
+  "sheet": null,
+  "preview_url_prefix": null,
+  "notes": "Po PressPerCent podešavanju „adm grafika“: ploča 724 × 615, štampajuća površina 700 × 550 (po visini od prednje ivice — Lead) (centrirana), 23 zona × 32,5 mm (širina obračuna 40,001 mm), jedna strana, 4 jedinice (K 1, C 2, M 3, Y 4). Izlaz: PDF sa ključevima boje za ručno podešavanje (kao PressPerCent „sides“ PDF). Skala ključeva 0–100 %, kriva zona Cyan 0→10, 100→84, dovod boje 0 %→3, 100 %→93. Na snimku je samo kriva za Cyan; Black i Magenta (prazna zona = 10) slažu se sa njom. Za Yellow prazna zona je 15 — kriva 0→15, 100→84 je procena iz PressPerCent izveštaja (Katalog Kraljica): prosečni ključ Yellow odgovara nagibu 0,69 po 1 %. Pošaljite snimak krive za Yellow da se potvrdi. Dovod boje 9/22/14/21 se poklapa sa izveštajem.",
+  "printable_width_mm": 700,
+  "calc_width_mm": 40.001,
+  "key_scale": {
+    "mode": "percent"
+  },
+  "zone_curves": {
+    "default": [
+      10,
+      84
+    ],
+    "Yellow": [
+      15,
+      84
+    ]
+  },
+  "feed_curves": {
+    "default": [
+      3,
+      93
+    ]
+  },
+  "units": {
+    "Black": 1,
+    "Cyan": 2,
+    "Magenta": 3,
+    "Yellow": 4
+  },
+  "hot_folder_name": "ADM Grafika"
+}

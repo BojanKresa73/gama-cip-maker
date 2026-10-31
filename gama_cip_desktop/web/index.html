@@ -90,6 +90,9 @@ textarea{resize:vertical;min-height:70px}
 .sw{width:14px;height:14px;border-radius:3px;border:1px solid rgba(0,0,0,.2);flex:none}
 .sep .st{text-align:right;font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--ink-2)}
 .sep .st b{font-size:15px;color:var(--ink)}
+.sep .keys{grid-column:1/-1;display:grid;gap:2px;font:10px/1.2 var(--mono);color:var(--ink);letter-spacing:-.02em}
+.sep .keys span{border:1px solid var(--line);border-radius:3px;text-align:center;padding:3px 0;background:#f8fafd;overflow:hidden;white-space:nowrap}
+.sep .keyh{grid-column:1/-1;font-size:11.5px;color:var(--ink-3);margin:-4px 0 -6px}
 .sep img{width:120px;border:1px solid var(--line);border-radius:4px;background:#fff;display:block}
 .bars{width:100%;height:56px;display:block}
 .export{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:end;margin-top:10px}
@@ -346,7 +349,7 @@ function renderHot(){
       <div style="min-width:0"><b style="word-break:break-word">${esc(e.file)}</b> <span class="small muted">· ${esc(e.printshop)}</span>
         <div class="small muted" style="word-break:break-word">${e.status==="u obradi"?'<span class="spin" style="width:11px;height:11px;vertical-align:-1px"></span> ':""}${esc(e.message)}</div></div>
       <div class="row" style="gap:8px">${e.out_dir && e.status!=="u obradi"?`<button class="btn ghost" style="padding:5px 10px;font-size:12px" data-open="${esc(e.out_dir)}">${e.status==="OK"?"Folder":"Greske"}</button>`:""}<span class="chip ${c}">${esc(e.status)}</span></div></div>`; }).join("");
-  $("#main").innerHTML = `<h1>Hot folderi</h1><p class="lead">Ubacite PDF u <b>Ulaz</b> — program pravi XML ili PPF i PDF premešta u <b>Obradjeno</b>. Ako nešto ne valja, PDF ide u <b>Greske</b> sa objašnjenjem.</p>
+  $("#main").innerHTML = `<h1>Hot folderi</h1><p class="lead">Ubacite PDF u <b>Ulaz</b> — program pravi XML, PPF ili PDF sa ključevima i PDF premešta u <b>Obradjeno</b>. Ako nešto ne valja, PDF ide u <b>Greske</b> sa objašnjenjem.</p>
     <div class="card" style="margin-bottom:16px"><div class="jobhead" style="margin:0"><div>
       <div class="small muted">Glavni folder</div><div class="mono" style="font-size:14px;word-break:break-all">${esc(h.root)}</div>
       <div class="small muted" style="margin-top:6px">Broj posla (Job ID) uzima se iz imena PDF-a: prvi samostalni broj od bar 4 cifre (npr. <span class="mono">…_26527_…</span>). Dnevnik svih poslova: <span class="mono">dnevnik.csv</span>.</div></div>
@@ -381,7 +384,7 @@ function renderHot(){
 }
 
 /* ---------------- jobs ---------------- */
-const outputs = p => [p.xml_enabled !== false ? "XML + PNG" : null, p.ppf_enabled ? "PPF" : null].filter(Boolean);
+const outputs = p => [p.xml_enabled !== false ? "XML + PNG" : null, p.ppf_enabled ? "PPF" : null, p.report_enabled ? "PDF sa ključevima" : null].filter(Boolean);
 function usableProfiles(){ return S.profiles.filter(p=>p.usable); }
 function renderJobs(){
   const usable = usableProfiles();
@@ -516,14 +519,16 @@ function resultHtml(j){
   const zoneNo = i => p.reverse_zones ? p.zone_count - i : i + 1;
   const ruler = `<div class="ruler" style="grid-template-columns:repeat(${p.zone_count},1fr)">${Array.from({length:p.zone_count},(_,i)=>`<span>${zoneNo(i)}</span>`).join("")}</div>`;
   const warnings = page.warnings.map(w=>`<div class="note warn" style="margin-top:8px">${esc(w)}</div>`).join("");
+  const pageKeys = (j.keys||{})[String(page.page)] || {};
   const seps = page.channels.map(ch => {
-    const on = sel.has(ch.name);
+    const on = sel.has(ch.name), kk = pageKeys[ch.name];
     const w = 100/ch.values.length;
     const bars = ch.values.map((v,i)=>`<rect x="${i*w+w*.12}" y="${100-v*100}" width="${w*.76}" height="${Math.max(v*100,.6)}" fill="${ch.name==="Yellow"?"#e0c400":rgbCss(ch.rgb)}"><title>Zona ${i+1}: ${pct(v)}</title></rect>`).join("");
     return `<div class="sep ${on?"":"off"}"><input type="checkbox" data-ch="${esc(ch.name)}" ${on?"checked":""} aria-label="Uključi ${esc(ch.name)}">
       <div><div class="nm"><span class="sw" style="background:${rgbCss(ch.rgb)}"></span>${esc(ch.name)}</div>${ch.thumbnail?`<img src="${fileUrl(j.id,ch.thumbnail)}" alt="" style="margin-top:6px" loading="lazy">`:""}</div>
       <svg class="bars" viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" x2="100" y1="100" y2="100" stroke="#cfd6e3" stroke-width=".6" vector-effect="non-scaling-stroke"/>${bars}</svg>
-      <div class="st"><b>${pct(ch.mean)}</b><br>prosek<br>max ${pct(ch.max)}</div></div>`;
+      <div class="st"><b>${pct(ch.mean)}</b><br>prosek<br>max ${pct(ch.max)}</div>
+      ${kk ? `<div class="keyh">Ključevi boje po zonama · dovod boje <b style="color:var(--ink)">${kk.feed}</b></div><div class="keys" style="grid-template-columns:repeat(${kk.keys.length},minmax(0,1fr))">${kk.keys.map((k,i)=>`<span title="Zona ${i+1}">${esc(k)}</span>`).join("")}</div>` : ""}</div>`;
   }).join("");
   const f = S.exportForm;
   const jobId = f.job_id ?? (j.job_number && /^\d+$/.test(j.job_number) ? j.job_number : (p.job_id || ""));
@@ -536,7 +541,7 @@ function resultHtml(j){
     <div class="small" style="margin-top:14px;color:var(--ink-2)">Strana tabaka: <b style="color:var(--ink)">${esc(j.auto_side||"Front")}</b>
       <span class="muted">— ${j.side_from_name ? "prepoznato iz imena fajla" : "kao PressPerCent (Back samo ako ime fajla sadrži back, naličje ili poleđina)"}</span></div>
     <div class="export">
-      ${p.xml_enabled !== false ? `<label class="f">Job ID<input type="text" id="xjob" maxlength="64" value="${esc(jobId)}"></label>` : `<div class="small muted" style="align-self:center">PPF dobija ime po PDF fajlu i broju strane.</div>`}
+      ${p.xml_enabled !== false ? `<label class="f">Job ID<input type="text" id="xjob" maxlength="64" value="${esc(jobId)}"></label>` : `<div class="small muted" style="align-self:center">${p.ppf_enabled && !p.report_enabled ? "PPF" : "Izlaz"} dobija ime po PDF fajlu i broju strane.</div>`}
       <div></div>
       <button class="btn" id="xbtn" ${canExport?"":"disabled"}>Izvezi ${outputs(p).join(" + ")}</button>
     </div>
@@ -739,28 +744,50 @@ document.addEventListener("keydown", e => {
 
 /* ---------------- profiles ---------------- */
 const NUM = (k,label,hint,step="0.1") => ({k,label,hint,type:"num",step});
-const isXml = p => p.xml_enabled !== false, isPpf = p => !!p.ppf_enabled;
+const isXml = p => p.xml_enabled !== false, isPpf = p => !!p.ppf_enabled, isRep = p => !!p.report_enabled;
 // adv: shown only under "Napredno". show: field visible only when it applies to the chosen output.
 const FIELDS = [
   ["Osnovno",[{k:"name",label:"Naziv profila",type:"text",wide:true},{k:"printshop",label:"Štamparija",type:"text"},{k:"machine",label:"Mašina",type:"text"}]],
   ["Ploča i zone boje",[NUM("plate_width_mm","Širina ploče (mm)"),NUM("plate_height_mm","Visina ploče (mm)"),NUM("zone_count","Broj zona","",1),NUM("zone_width_mm","Širina zone (mm)"),NUM("area_height_mm","Visina zone boje (mm)"),
     NUM("shift_x_mm","Pomak X (mm)","+ desno od centra"),NUM("top_mm","Gornji ofset (mm)","+ naniže u zoni boje"),
-    {k:"input_mode",label:"Ulazni PDF",type:"sel",opts:[["plate","PDF je ploča (tačan format)"],["sheet","PDF je tabak (manji ili jednak)"]]},
-    {k:"vertical_anchor",label:"Vertikalno poravnanje",type:"sel",opts:[["top","Od vrha zone boje"],["bottom","Od dna zone boje"],["ink_center","Centrirana oblast sa bojom (PressPerCent)"]]},NUM("bottom_mm","Donji ofset (mm)","samo za poravnanje od dna")]],
+    {k:"input_mode",label:"Ulazni PDF",type:"sel",opts:[["plate","PDF je ploča (tačan format)"],["sheet","PDF je tabak (manji ili jednak)"],["any","Bilo koji format (kao DI-Plot / PressPerCent)"]]},
+    {k:"vertical_anchor",label:"Vertikalno poravnanje",type:"sel",opts:[["top","Od vrha zone boje"],["bottom","Od dna zone boje (DI-Plot)"],["ink_center","Centrirana oblast sa bojom (PressPerCent „Center“)"],["ink_top","Oblast sa bojom od vrha (PressPerCent „Lead“)"]]},
+    NUM("bottom_mm","Donji ofset (mm)","za poravnanje od dna: DI-Plot BMapShift Y (+ = PDF niže)"),
+    NUM("calc_width_mm","Širina obračuna zone (mm)","PressPerCent „Calculation Width“; prazno = širina zone"),
+    NUM("printable_width_mm","Širina štampajuće površine (mm)","za pokrivenost i dovod boje; prazno = širina svih zona")]],
   ["Izlaz za mašinu",[
     {k:"xml_enabled",label:"XML + PNG",type:"chk",hint:"Za mašine sa DI-Plot konzolom, npr. Birograf."},
     {k:"ppf_enabled",label:"PPF",type:"chk",hint:"Za mašine koje čitaju PPF, npr. Eurodream (isto što pravi PressPerCent)."},
+    {k:"report_enabled",label:"PDF sa ključevima boje",type:"chk",hint:"Za štamparije koje ključeve podešavaju ručno — A4 list sa vrednostima po zonama (kao PressPerCent „sides“ PDF)."},
     {k:"signature",label:"Signature",type:"text",show:isXml,hint:"Oznaka koju Birograf konzola očekuje u XML-u. U uzorcima: SIG1."},
     {k:"sheet",label:"Sheet",type:"text",show:isXml,hint:"Oznaka tabaka u XML-u. U uzorcima: S1."},
     {k:"preview_url_prefix",label:"Adresa PNG pregleda (Preview URL prefiks)",type:"text",wide:true,show:isXml,
      hint:"Odakle konzola mašine čita PNG sliku. Saznati u štampariji — vrednost iz uzoraka je privremena."}]],
+  ["Ključevi boje (PDF)",[
+    {k:"ks_mode",label:"Skala ključeva",type:"sel",show:isRep,opts:[["percent","Procenti 0–100"],["custom","Sopstvena skala (npr. 2–14 / 1–16)"]],
+      get:p=>(p.key_scale||{}).mode||"percent", set:(p,v)=>{ p.key_scale = v==="percent" ? {mode:"percent"} : {mode:"custom", first:[2,14], second:[1,16], sep:"/"}; }},
+    {k:"ks_first",label:"1. cifra od–do",type:"text",show:p=>isRep(p)&&(p.key_scale||{}).mode==="custom",hint:"npr. 2-14 ili 20-250",
+      get:p=>((p.key_scale||{}).first||[]).join("-"), set:(p,v)=>{ const m=String(v).match(/^\s*(\d+)\s*[-–]\s*(\d+)\s*$/); if(m) p.key_scale={...p.key_scale, first:[+m[1],+m[2]]}; }},
+    {k:"ks_second",label:"2. cifra od–do",type:"text",show:p=>isRep(p)&&(p.key_scale||{}).mode==="custom",hint:"npr. 1-16; prazno = nema 2. cifre",
+      get:p=>((p.key_scale||{}).second||[]).join("-"), set:(p,v)=>{ const m=String(v).match(/^\s*(\d+)\s*[-–]\s*(\d+)\s*$/); const ks={...p.key_scale}; if(m) ks.second=[+m[1],+m[2]]; else if(!String(v).trim()) delete ks.second; p.key_scale=ks; }},
+    ...["default","Cyan","Magenta","Yellow","Black"].map(c=>({k:"zc_"+c,label:c==="default"?"Kriva zona (0 % → 100 %)":`Kriva zona — ${c}`,type:"text",show:isRep,
+      hint:c==="default"?"Vrednost za praznu i za punu zonu, npr. 3/11-14/16 ili 10-84. Važi za sve boje koje nemaju svoju.":"prazno = kao gore",
+      get:p=>{ const v=(p.zone_curves||{})[c]; return v&&!Array.isArray(v[0]) ? v.join(" - ") : ""; },
+      set:(p,v)=>{ const zc={...(p.zone_curves||{})}, t=String(v).trim();
+        const m = t.match(/^(\d+\s*\/\s*\d+)\s*[-–]\s*(\d+\s*\/\s*\d+)$/) || t.match(/^(\d+(?:[.,]\d+)?)\s*[-–]\s*(\d+(?:[.,]\d+)?)$/);
+        if (m) zc[c] = [m[1],m[2]].map(x => x.includes("/") ? x.replace(/\s/g,"") : +x.replace(",",".")); else if (!t) delete zc[c];
+        p.zone_curves=zc; }})),
+    {k:"fc_default",label:"Dovod boje (0 % → 100 %)",type:"text",show:isRep,hint:"npr. 5-65",
+      get:p=>((p.feed_curves||{}).default||[]).join(" - "), set:(p,v)=>{ const m=String(v).match(/^\s*(\d+(?:[.,]\d+)?)\s*[-–]\s*(\d+(?:[.,]\d+)?)\s*$/); if(m) p.feed_curves={...(p.feed_curves||{}), default:[+m[1].replace(",","."),+m[2].replace(",",".")]}; }}]],
   ["Hot folder",[{k:"hot_folder",label:"Hot folder za ovaj profil",type:"chk",def:true},{k:"hot_folder_name",label:"Ime foldera",type:"text",hint:"Prazno = ime štamparije."},
     {k:"hot_copy_to",label:"Kopiraj izlaz i u folder",type:"text",wide:true,hint:"Nije obavezno. Npr. folder iz kog konzola mašine čita PPF/XML (\\\\server\\CIP ili Z:\\CIP). PressPerCent kod Eurodream-a izvozi na dva mesta: „Exported“ i „CIP“. Ako kopiranje ne uspe, dobićete obaveštenje."}]],
   ["Status",[{k:"active",label:"Aktivan (može se koristiti za obradu)",type:"chk"},{k:"export_enabled",label:"Izvoz dozvoljen",type:"chk",hint:"Dozvoljava pravljenje XML/PPF fajla za mašinu."}]],
   ["Orijentacija",[{k:"rotation",label:"Rotacija",type:"sel",num:true,opts:[[0,"0°"],[90,"90°"],[180,"180°"],[270,"270°"]]},{k:"pdf_box",label:"PDF okvir",type:"sel",opts:[["MediaBox","MediaBox"],["CropBox","CropBox"]]},
     {k:"mirror_x",label:"Ogledalo levo-desno",type:"chk"},{k:"mirror_y",label:"Ogledalo gore-dole",type:"chk"},{k:"reverse_zones",label:"Obrnut redosled zona",type:"chk"}],"adv"],
   ["Rezolucija obrade",[{k:"render_dpi",label:"Radna rezolucija",type:"sel",num:true,opts:[[300,"300 dpi"],[600,"600 dpi (preporučeno)"],[1200,"1200 dpi"]]},
-    {k:"preview_dpi",label:"PNG pregled za konzolu",type:"sel",num:true,opts:[[25,"25 dpi"],[50,"50 dpi"],[72,"72 dpi"],[75,"75 dpi"],[150,"150 dpi"]],show:isXml}],"adv"],
+    {k:"preview_dpi",label:"PNG pregled za konzolu",type:"sel",num:true,opts:[[25,"25 dpi"],[50,"50 dpi"],[72,"72 dpi"],[75,"75 dpi"],[150,"150 dpi"]],show:isXml},
+    {k:"preview_max_px",label:"Najveća veličina PNG-a (piksela)",type:"num",step:"1",show:isXml,hint:"DI-Plot „Max. Thumbnail-Size“; 0 = koristi dpi"},
+    {k:"preview_scope",label:"PNG obuhvata",type:"sel",show:isXml,opts:[["zone","Oblast zona (Inkzone Area)"],["bitmap","Ceo PDF (Bitmap Area)"]]}],"adv"],
   ["Tehnički podaci u izlaznom fajlu",[
     {k:"side",label:"Podrazumevana strana tabaka",type:"sel",opts:[["Front","Front (lice)"],["Back","Back (poleđina)"]],
      hint:"PressPerCent svaku stranu PDF-a upisuje kao Front. Back se bira sam ako ime fajla sadrži back, naličje ili poleđina."},
@@ -768,6 +795,7 @@ const FIELDS = [
     {k:"ppf_dpi",label:"PPF rezolucija pregleda",type:"sel",num:true,show:isPpf,opts:[[25.4,"25,4 dpi"],[50.8,"50,8 dpi (PressPerCent)"],[101.6,"101,6 dpi"]],hint:"PressPerCent uvek piše 50,8. Ne menjati."},
     {k:"ppf_sheet_lay",label:"PPF SheetLay",type:"sel",show:isPpf,opts:[["Left","Left"],["Right","Right"]],hint:"PressPerCent piše Left. Ne menjati."}],"adv"],
 ];
+const FIELD_BY_KEY = Object.fromEntries(FIELDS.flatMap(([,fs])=>fs).map(f=>[f.k,f]));
 function renderProfiles(){
   if (!S.profile && S.profiles.length) S.profile = structuredClone(S.profiles[0]);
   $("#main").innerHTML = `<h1>Profili mašina</h1><p class="lead">Geometrija ploče i zona boje za svaku mašinu. Svaka izmena briše oznaku provere — profil se ponovo mora uporediti sa mašinom.</p>
@@ -781,7 +809,7 @@ function renderProfiles(){
 }
 function fieldHtml(f){
   if (f.show && !f.show(S.profile)) return "";
-  const v = S.profile[f.k], hint = f.hint ? `<span class="hint">${f.hint}</span>` : "", wide = f.wide ? 'style="grid-column:1/-1"' : "";
+  const v = f.get ? f.get(S.profile) : S.profile[f.k], hint = f.hint ? `<span class="hint">${f.hint}</span>` : "", wide = f.wide ? 'style="grid-column:1/-1"' : "";
   if (f.type==="chk") return `<label class="f" style="color:var(--ink)"><span class="check"><input type="checkbox" data-k="${f.k}" ${(v ?? f.def) ? "checked" : ""}><b>${f.label}</b></span>${hint}</label>`;
   if (f.type==="sel") return `<label class="f" ${wide}>${f.label}<select data-k="${f.k}" ${f.num?'data-num="1"':""}>${f.opts.map(([o,l])=>`<option value="${o}" ${String(v??"")===String(o)?"selected":""}>${l}</option>`).join("")}</select>${hint}</label>`;
   if (f.type==="num") return `<label class="f">${f.label}<input type="number" step="${f.step}" data-k="${f.k}" data-num="1" value="${v??""}">${hint}</label>`;
@@ -806,7 +834,7 @@ function liveCheck(){
   const p = S.profile, out = [];
   const req = {machine:"Mašina",plate_width_mm:"Širina ploče",plate_height_mm:"Visina ploče",zone_count:"Broj zona",zone_width_mm:"Širina zone",area_height_mm:"Visina zone boje",shift_x_mm:"Pomak X",top_mm:"Gornji ofset"};
   if (p.xml_enabled !== false) Object.assign(req, {signature:"Signature", sheet:"Sheet"});
-  if (p.xml_enabled === false && !p.ppf_enabled) out.push("izlaz (XML ili PPF)");
+  if (p.xml_enabled === false && !p.ppf_enabled && !p.report_enabled) out.push("izlaz (XML, PPF ili PDF sa ključevima)");
   for (const [k,l] of Object.entries(req)) if (p[k]===null||p[k]===undefined||p[k]==="") out.push(l);
   const warn = [];
   if (p.zone_count && p.zone_width_mm && p.plate_width_mm && p.zone_count*p.zone_width_mm > p.plate_width_mm) warn.push(`Zbir zona (${p.zone_count} × ${p.zone_width_mm} = ${+(p.zone_count*p.zone_width_mm).toFixed(2)} mm) je veći od širine ploče.`);
@@ -832,9 +860,12 @@ function bindForm(){
       const k=inp.dataset.k; let v = inp.type==="checkbox"?inp.checked:inp.value;
       if (inp.dataset.num) v = v===""?null:Number(v);
       if (k==="side" && v==="") v=null;
+      const fdef = FIELD_BY_KEY[k];
+      if (fdef && fdef.set){ fdef.set(S.profile, v); if (k==="ks_mode"){ const y = $("main").scrollTop; S.advOpen = $("#padv").open; $("#pform").innerHTML = formHtml(); bindForm(); $("main").scrollTop = y; return; } liveCheck(); return; }
+      if ((k==="calc_width_mm" || k==="printable_width_mm") && v===null){ delete S.profile[k]; liveCheck(); return; }
       S.profile[k]=v;
       if (k==="name") form.querySelector("h2").textContent = v || "Novi profil";
-      if (k==="xml_enabled" || k==="ppf_enabled"){   // show only the fields of the chosen output
+      if (k==="xml_enabled" || k==="ppf_enabled" || k==="report_enabled"){   // show only the fields of the chosen output
         const y = $("main").scrollTop; S.advOpen = $("#padv").open; $("#pform").innerHTML = formHtml(); bindForm(); $("main").scrollTop = y; return;
       }
       liveCheck();
@@ -859,7 +890,8 @@ const HELP = [
 <p>Gama United CIP Maker iz PDF-a ploče računa <b>pokrivenost boje po zonama ključeva boje</b> i pravi fajl koji konzola štamparske mašine učitava, da bi ključevi boje bili postavljeni pre prvog otiska.</p>
 <table class="dtab"><tr><th>Izlaz</th><th>Za koje mašine</th><th>Šta se dobija</th></tr>
 <tr><td><b>XML + PNG</b></td><td>Konzole sa DI-Plot / JDF uvozom (npr. Birograf, Rapida 105)</td><td>XML sa vrednostima po zonama i PNG pregled ploče</td></tr>
-<tr><td><b>PPF</b> (CIP3 2.1)</td><td>Konzole koje čitaju PPF (npr. Eurodream) — isti format koji pravi PressPerCent</td><td>Jedan .PPF fajl po strani PDF-a</td></tr></table>
+<tr><td><b>PPF</b> (CIP3 2.1)</td><td>Konzole koje čitaju PPF (npr. Eurodream, Dunav, Intranet) — isti format koji pravi PressPerCent</td><td>Jedan .PPF fajl po strani PDF-a</td></tr>
+<tr><td><b>PDF sa ključevima</b></td><td>Mašine bez CIP uvoza, gde operater ključeve podešava ručno (npr. Simbol, 3D Print, ADM Grafika, Tipo štampa)</td><td>A4 list: slika tabaka sa zonama i vrednost ključa za svaku zonu i boju, plus dovod boje — kao PressPerCent „sides“ PDF</td></tr></table>
 <p>Spot boje (Pantone i sl.) ostaju kao posebne ploče. Separacije za doradu (<b>štanc, big, perforacija</b>) program sam prepoznaje i ne šalje ih u izlaz.</p>
 <p>Sve se radi na ovom računaru — PDF-ovi se nigde ne šalju.</p>
 <div class="note info">Postoje dva načina rada: <b>hot folderi</b> (ubacite PDF u folder, izlaz se pojavi sam — preporučeno za svakodnevni rad) i <b>ručna obrada</b> na strani „Obrada“ (kad želite da pogledate separacije pre izvoza).</div>`],
@@ -886,7 +918,7 @@ const HELP = [
 │  └─ Greske        ← PDF koji nije mogao da se obradi + .txt sa razlogom
 ├─ Eurodream\\
 │  ├─ Ulaz
-│  ├─ PPF           ← za PPF profile folder se zove PPF
+│  ├─ PPF           ← za PPF profile folder se zove PPF (za PDF sa ključevima: PDF)
 │  ├─ Obradjeno
 │  └─ Greske
 └─ dnevnik.csv      ← jedan red za svaki PDF (otvara se u Excelu)</div>
@@ -960,11 +992,22 @@ const HELP = [
 <li>Za novu mašinu najlakše je <b>Dupliraj</b> sličan profil pa promeniti podatke.</li>
 <li>Odeljak <b>Napredno</b> (rotacija, ogledalo, rezolucija, tehnička polja) ne menjajte bez potrebe.</li>
 </ul>
-<table class="dtab"><tr><th>Štamparija</th><th>Stanje</th></tr>
-<tr><td>Birograf (Rapida 105, 1060 × 795)</td><td>XML + PNG. Upoređeno sa uzorcima. Adresu PNG pregleda (Preview URL) treba potvrditi u štampariji.</td></tr>
-<tr><td>Eurodream (745 × 605)</td><td>PPF kao PressPerCent (EuroDream8, 23 zone × 32,5 mm). Upoređeno sa PressPerCent fajlovima.</td></tr>
-<tr><td>Bigraf, No Kachi, Unagraf</td><td>Čekaju podatke o mašini — nepotpuni.</td></tr></table>
+<table class="dtab"><tr><th>Izlaz</th><th>Štamparije</th><th>Odakle su podaci</th></tr>
+<tr><td>XML + PNG</td><td>Birograf, Bigraf, Unagraf, Zemun Plast, No Kachi, Jovšić, Proof, Publik</td><td>DI-Plot podešavanja (Inkzone Press Templates). PDF se postavlja kao u DI-Plot-u: centriran po širini, dno PDF-a „BMapShift Y“ mm ispod dna zona.</td></tr>
+<tr><td>PPF</td><td>Eurodream, Dunav, Intranet</td><td>PressPerCent podešavanja; Eurodream, Dunav i Intranet upoređeni sa PressPerCent PPF fajlovima.</td></tr>
+<tr><td>PDF sa ključevima</td><td>Simbol, 3D Print, Tipo štampa, ADM Grafika</td><td>PressPerCent podešavanja (skala, krive zona, dovod boje); model proveren na PressPerCent izveštajima.</td></tr></table>
+<p>Fabrički profili dolaze sa programom i sa svakim ažuriranjem: novi se dodaju, a profil koji niste menjali zamenjuje se novijom verzijom. Profil koji ste sami izmenili program ne dira.</p>
 <div class="note warn">Nijedan profil još nije potvrđen na samoj konzoli mašine. Prvi posao za svaku mašinu proverite: uporedite ključeve boje sa onim što je mašina do sada dobijala.</div>`],
+
+["keys", "PDF sa ključevima boje", `
+<p>Za štamparije gde operater ključeve boje podešava ručno, program pravi A4 PDF — isti sadržaj kao PressPerCent „sides“ izveštaj:</p>
+<ul>
+<li>podaci o poslu, formatu ploče i štampajućoj površini;</li>
+<li>slika tabaka sa granicama i brojevima zona;</li>
+<li>za svaku ploču (Black, Cyan, Magenta, Yellow, spot boje): <b>vrednost ključa za svaku zonu</b>, pokrivenost ploče i <b>dovod boje</b>.</li>
+</ul>
+<p>Vrednosti se računaju po podešavanjima štamparije iz profila (odeljak „Ključevi boje (PDF)“): <b>skala</b> (npr. 2/01 do 14/16 ili 0–100), <b>kriva zona</b> (koliki je ključ za praznu i za punu zonu, npr. 3/11 i 14/16) i <b>kriva dovoda boje</b> (npr. 5 i 65). Iste vrednosti se vide i u programu, ispod grafikona svake separacije.</p>
+<p>U hot folderu PDF se pojavi u folderu <b>PDF</b> štamparije, spreman za štampu.</p>`],
 
 ["update", "Ažuriranje programa", `
 <p>Program sam proverava nove verzije pri pokretanju i na svakih 6 sati. Kad nova verzija stigne, dole levo pored broja verzije pojavi se oznaka <span class="upd">↑</span>.</p>

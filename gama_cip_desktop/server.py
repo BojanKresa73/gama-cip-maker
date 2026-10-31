@@ -144,13 +144,14 @@ class App:
             bundle.replace(target)
         stem = ascii_name(Path(job["filename"]).stem, limit=80)
         profile = job["result"]["profile"]
-        if profile.get("ppf_enabled") and not profile.get("xml_enabled", True) and len(job["result"]["pages"]) == 1:
-            # Same deliverable as PressPerCent: the .PPF file itself.
-            with zipfile.ZipFile(target) as archive:
-                member = next(n for n in archive.namelist() if n.endswith(".PPF"))
-                single = results / f"export-{key}.PPF"
-                single.write_bytes(archive.read(member))
-            return {"name": single.name, "suggested": Path(member).name, "kind": "ppf"}
+        with zipfile.ZipFile(target) as archive:
+            machine = [n for n in archive.namelist() if "/" not in n]
+            if len(machine) == 1 and machine[0].lower().endswith((".ppf", ".pdf")):
+                # Same deliverable as PressPerCent: the .PPF (or the key-report PDF) itself.
+                ext = Path(machine[0]).suffix
+                single = results / f"export-{key}{ext}"
+                single.write_bytes(archive.read(machine[0]))
+                return {"name": single.name, "suggested": machine[0], "kind": ext[1:].lower()}
         return {"name": target.name, "suggested": f"{stem}_{cip_job_id.strip()}_{side}.zip", "kind": "zip"}
 
 
@@ -260,8 +261,16 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_json({"error": "Posao nije pronađen."}, 404)
                 if len(p) == 2 and method == "GET":
                     from gama_cip.names import job_id_from_name, side_from_name
-                    return self.send_json({"job": job | {"auto_side": app.side_for(job), "side_from_name": bool(side_from_name(job["filename"])),
-                                                         "job_number": job_id_from_name(job["filename"])}})
+                    extra = {"auto_side": app.side_for(job), "side_from_name": bool(side_from_name(job["filename"])),
+                             "job_number": job_id_from_name(job["filename"])}
+                    result = job.get("result") or {}
+                    if (result.get("profile") or {}).get("report_enabled"):
+                        from gama_cip.keys import ink_feed, zone_keys
+                        prof = result["profile"]
+                        extra["keys"] = {str(pg["page"]): {c["name"]: {"keys": zone_keys(c["values"], c["name"], prof),
+                                                                       "feed": ink_feed(c.get("area_coverage", c["mean"]), c["name"], prof)}
+                                                           for c in pg["channels"]} for pg in result.get("pages", [])}
+                    return self.send_json({"job": job | extra})
                 if len(p) == 2 and method == "DELETE":
                     app.jobs.delete(job_id)
                     return self.send_json({"ok": True})
@@ -272,7 +281,7 @@ class Handler(BaseHTTPRequestHandler):
                     cip_job_id = str(body.get("job_id") or "").strip()
                     xml = (job.get("result") or {}).get("profile", {}).get("xml_enabled", True)
                     if not cip_job_id and not xml:
-                        cip_job_id = "PPF"  # PPF carries the file name as its job name
+                        cip_job_id = "PPF"  # PPF and the key report carry the file name as their job name
                     if not cip_job_id or len(cip_job_id) > 64:
                         raise ValueError("Unesite Job ID (do 64 znaka).")
                     return self.send_json(app.export(job_id, body.get("selections") or {}, cip_job_id, body.get("side") or "auto"))
@@ -283,7 +292,7 @@ class Handler(BaseHTTPRequestHandler):
                         raise ValueError("Neispravno ime fajla.")
                     if p[2] == "files" and name not in allowed:
                         return self.send_json({"error": "Fajl nije deo rezultata."}, 404)
-                    if p[2] == "download" and not re.fullmatch(r"export-[0-9a-f]{16}\.(zip|PPF)", name):
+                    if p[2] == "download" and not re.fullmatch(r"export-[0-9a-f]{16}\.(zip|PPF|pdf)", name):
                         return self.send_json({"error": "Neispravan izvoz."}, 404)
                     path = app.jobs.path(job_id) / "results" / name
                     if not path.exists():

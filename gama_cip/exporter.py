@@ -51,7 +51,8 @@ def xml_bytes(page, profile, channels, job_id, side, sheet, png_name):
     sig = sub(pre, "Preview", SignatureName=profile["signature"])
     sh = sub(sig, "Preview", SheetName=sheet)
     sub(sh, "Preview", Side=side, URL=profile["preview_url_prefix"] + png_name)
-    sub(sh, "Preview", Resolution=f"{profile['preview_dpi']} {profile['preview_dpi']}")
+    res = page.get("preview_resolution", profile["preview_dpi"])
+    sub(sh, "Preview", Resolution=f"{res} {res}")
     sub(sh, "Preview", Size=" ".join(str(v) for v in page["preview_size"]))
     ET.indent(root, space="  ")
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
@@ -153,6 +154,11 @@ def export_zip(result, folder, selections, job_id, side, source_name):
             ppf_name = f"{base}.p{page['page']:04d}.PPF"
             files.append((ppf_name, ppf_bytes(page, profile, channels, root, f"{Path(source_name).stem}.p{page['page']:04d}", side, f"Sheet {page['page']}")))
             made.append(ppf_name)
+        if profile.get("report_enabled"):
+            from .report import report_pdf
+            pdf_name = f"{base}.p{page['page']:04d}_kljucevi.pdf"
+            files.append((pdf_name, report_pdf(page, profile, channels, root, f"{Path(source_name).stem}.p{page['page']:04d}", side, source_name)))
+            made.append(pdf_name)
         files.append(("pregled/" + stem + ".png", root / page["thumbnail"]))
         log = root / page.get("render_log", f"page-{page['page']:04d}.render.log")
         if log.exists():

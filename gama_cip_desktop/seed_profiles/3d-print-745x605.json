@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "rotation": 0,
+  "mirror_x": false,
+  "mirror_y": false,
+  "reverse_zones": false,
+  "pdf_box": "MediaBox",
+  "render_dpi": 600,
+  "coverage_dpi": 150,
+  "preview_dpi": 72,
+  "preview_scope": "zone",
+  "preview_max_px": 0,
+  "job_id": null,
+  "side": "Front",
+  "shift_x_mm": 0,
+  "top_mm": 0,
+  "bottom_mm": 0,
+  "active": true,
+  "export_enabled": true,
+  "validation_status": "unverified",
+  "ppf_dpi": 50.8,
+  "ppf_sheet_lay": "Left",
+  "hot_folder": true,
+  "id": "3d-print-745x605",
+  "name": "3D Print · 745 × 605 · ključevi",
+  "printshop": "3D Print",
+  "machine": "PressPerCent „3D Print“",
+  "zone_count": 23,
+  "zone_width_mm": 32.5,
+  "area_height_mm": 605,
+  "plate_width_mm": 745,
+  "plate_height_mm": 605,
+  "input_mode": "any",
+  "vertical_anchor": "ink_center",
+  "xml_enabled": false,
+  "ppf_enabled": false,
+  "report_enabled": true,
+  "signature": null,
+  "sheet": null,
+  "preview_url_prefix": null,
+  "notes": "Po PressPerCent podešavanju „3d print“: ploča 745 × 605, štampajuća površina 747,5 × 605 (centrirana), 23 zona × 32,5 mm, jedna strana, 4 jedinice (K 1, C 2, M 3, Y 4). Izlaz: PDF sa ključevima boje za ručno podešavanje (kao PressPerCent „sides“ PDF). Skala ključeva 2–14 / 1–16, kriva zona 2/01→3/11 … 14/16→14/16 (isto za sve boje), dovod boje 0 %→5, 100 %→65. Proveren model skale na PressPerCent izveštaju (Black 7,172 %, dovod 9). Nije upoređeno zona po zona sa istim PDF-om.",
+  "key_scale": {
+    "mode": "custom",
+    "first": [
+      2,
+      14
+    ],
+    "second": [
+      1,
+      16
+    ],
+    "sep": "/"
+  },
+  "zone_curves": {
+    "default": [
+      "3/11",
+      "14/16"
+    ]
+  },
+  "feed_curves": {
+    "default": [
+      5,
+      65
+    ]
+  },
+  "units": {
+    "Black": 1,
+    "Cyan": 2,
+    "Magenta": 3,
+    "Yellow": 4
+  },
+  "hot_folder_name": "3D Print"
+}

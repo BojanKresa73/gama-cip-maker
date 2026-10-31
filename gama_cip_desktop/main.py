@@ -71,7 +71,7 @@ class Bridge:
         if not source.is_file():
             return {"error": "Izvoz ne postoji."}
         ext = Path(name).suffix
-        kind = "PPF fajl (*.PPF;*.ppf)" if ext.lower() == ".ppf" else "ZIP arhiva (*.zip)"
+        kind = {".ppf": "PPF fajl (*.PPF;*.ppf)", ".pdf": "PDF sa ključevima boje (*.pdf)"}.get(ext.lower(), "ZIP arhiva (*.zip)")
         chosen = self._window.create_file_dialog(webview.FileDialog.SAVE, save_filename=suggested, file_types=(kind,))
         if not chosen:
             return {"cancelled": True}

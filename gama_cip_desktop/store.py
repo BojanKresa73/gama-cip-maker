@@ -3,6 +3,7 @@
 Profiles may be incomplete (e.g. printshops still waiting for DI-Plot data);
 they are kept and editable but cannot be used for processing until complete.
 """
+import hashlib
 import json
 import os
 import re
@@ -61,8 +62,8 @@ def blockers(p):
     xml = p.get("xml_enabled", True)
     out = [f"Nedostaje: {label}" for key, label in REQUIRED.items()
            if p.get(key) in (None, "") and (xml or key not in ("signature", "sheet"))]
-    if not xml and not p.get("ppf_enabled"):
-        out.append("Uključite bar jedan izlaz (XML ili PPF)")
+    if not xml and not p.get("ppf_enabled") and not p.get("report_enabled"):
+        out.append("Uključite bar jedan izlaz (XML, PPF ili PDF sa ključevima)")
     if not p.get("active"):
         out.append("Profil nije aktivan")
     if not out:
@@ -84,14 +85,82 @@ def engine_settings(p):
     return s
 
 
+def canonical(p):
+    return hashlib.sha256(json.dumps(p, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
+
+
+# Factory profiles shipped by earlier versions (canonical hashes). A user's file equal to one of
+# these was never edited, so a newer factory version may replace it.
+EARLIER_SEEDS = {
+    "bigraf-745x605": {"2e8c51cb1b928047"},
+    "birograf-rapida105-1060x795": {"0ac661868bf68bd6"},
+    "eurodream-745x605": {"0d80410c1becd436", "11037f4ae2e956fd"},
+    "nokachi-745x605": {"b2834e5e1f86c35c"},
+    "unagraf-745x605": {"e0de0ce3002e2374"},
+}
+
+
 class ProfileStore:
     def __init__(self, root):
         self.folder = Path(root) / "profiles"
         self.folder.mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
-        if not any(self.folder.glob("*.json")):
-            for src in seed_folder().glob("*.json"):
-                shutil.copyfile(src, self.folder / src.name)
+        self.seed_report = self.sync_seeds()
+
+    def sync_seeds(self):
+        """Bring factory profiles from this version into the user's profile folder.
+
+        - new factory profiles are added (unless the user deleted that profile earlier);
+        - a factory profile the user never edited is replaced by the newer factory version;
+        - an incomplete profile (could not be used) is replaced by a complete factory version,
+          the old file is kept in profiles/stari;
+        - a profile the user edited and can use is never touched.
+        """
+        state_path = self.folder / "fabricki-profili.state"
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            state = {}
+        installed = state.setdefault("installed", {})
+        report = {"added": [], "updated": [], "kept": []}
+        for src in sorted(seed_folder().glob("*.json")):
+            try:
+                seed = json.loads(src.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            pid, new_hash = seed["id"], canonical(seed)
+            target = self.folder / src.name
+            if not target.exists():
+                if pid in installed:          # the user deleted it; respect that
+                    continue
+                shutil.copyfile(src, target)
+                installed[pid] = new_hash
+                report["added"].append(seed["name"])
+                continue
+            try:
+                current = json.loads(target.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                current = {}
+            cur_hash = canonical(current)
+            if cur_hash == new_hash:
+                installed[pid] = new_hash
+                continue
+            untouched = cur_hash == installed.get(pid) or cur_hash in EARLIER_SEEDS.get(pid, ())
+            unusable = bool(blockers(current)) and not blockers(seed)
+            if untouched or unusable:
+                if not untouched:
+                    backup = self.folder / "stari"
+                    backup.mkdir(exist_ok=True)
+                    shutil.copyfile(target, backup / f"{target.stem}-{time.strftime('%Y%m%d-%H%M%S')}.json")
+                shutil.copyfile(src, target)
+                installed[pid] = new_hash
+                report["updated"].append(seed["name"])
+            else:
+                report["kept"].append(current.get("name", pid))
+        tmp = state_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, state_path)
+        return report
 
     def _path(self, identifier):
         if not re.fullmatch(r"[a-zA-Z0-9_-]{1,80}", identifier or ""):

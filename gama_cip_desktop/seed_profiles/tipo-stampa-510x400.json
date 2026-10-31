@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "rotation": 0,
+  "mirror_x": false,
+  "mirror_y": false,
+  "reverse_zones": false,
+  "pdf_box": "MediaBox",
+  "render_dpi": 600,
+  "coverage_dpi": 150,
+  "preview_dpi": 72,
+  "preview_scope": "zone",
+  "preview_max_px": 0,
+  "job_id": null,
+  "side": "Front",
+  "shift_x_mm": 0,
+  "top_mm": 0,
+  "bottom_mm": 0,
+  "active": true,
+  "export_enabled": true,
+  "validation_status": "unverified",
+  "ppf_dpi": 50.8,
+  "ppf_sheet_lay": "Left",
+  "hot_folder": true,
+  "id": "tipo-stampa-510x400",
+  "name": "Tipo štampa · 510 × 400 · ključevi",
+  "printshop": "Tipo štampa",
+  "machine": "PressPerCent „Tipo štampa“",
+  "zone_count": 16,
+  "zone_width_mm": 32.5,
+  "area_height_mm": 400,
+  "plate_width_mm": 510,
+  "plate_height_mm": 400,
+  "input_mode": "any",
+  "vertical_anchor": "ink_center",
+  "xml_enabled": false,
+  "ppf_enabled": false,
+  "report_enabled": true,
+  "signature": null,
+  "sheet": null,
+  "preview_url_prefix": null,
+  "notes": "Po PressPerCent podešavanju „Tipo stampa“: ploča 510 × 400, štampajuća površina 520 × 400 (centrirana), 16 zona × 32,5 mm, jedna strana, 4 jedinice (K 1, C 2, M 3, Y 4). Izlaz: PDF sa ključevima boje za ručno podešavanje (kao PressPerCent „sides“ PDF). Skala ključeva 2–14 / 1–16, kriva zona 2/01→3/11 … 14/16→14/16, dovod boje 0 %→5, 100 %→65. Nema uzorka izveštaja za ovu štampariju.",
+  "key_scale": {
+    "mode": "custom",
+    "first": [
+      2,
+      14
+    ],
+    "second": [
+      1,
+      16
+    ],
+    "sep": "/"
+  },
+  "zone_curves": {
+    "default": [
+      "3/11",
+      "14/16"
+    ]
+  },
+  "feed_curves": {
+    "default": [
+      5,
+      65
+    ]
+  },
+  "units": {
+    "Black": 1,
+    "Cyan": 2,
+    "Magenta": 3,
+    "Yellow": 4
+  }
+}

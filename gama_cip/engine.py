@@ -79,6 +79,8 @@ def inspect_pdf(path, profile):
             mismatch = max(abs(transformed[0] - profile["plate_width_mm"]), abs(transformed[1] - profile["plate_height_mm"])) > 0.5
             if profile.get("input_mode", "plate") == "sheet":
                 mismatch = transformed[0] > profile["plate_width_mm"] + 0.5 or transformed[1] > profile["plate_height_mm"] + 0.5
+            elif profile.get("input_mode") == "any":   # like DI-Plot / PressPerCent: any page size is placed by the rules
+                mismatch = False
             if mismatch:
                 raise ValueError(f"Strana {page.number + 1}: format nakon rotacije je {transformed[0]:.2f} × {transformed[1]:.2f} mm, a profil očekuje {profile['plate_width_mm']} × {profile['plate_height_mm']} mm. Izaberite ili podesite odgovarajući profil.")
             pages.append({"page": page.number + 1, "source_mm": [w, h], "oriented_mm": list(transformed), "pdf_rotation": page.rotation})
@@ -106,8 +108,16 @@ def orient_image(image, p):
 
 
 def placement(mm, p):
+    """(left, top) of the PDF page inside the ink-zone area, in mm.
+
+    top: page top is top_mm below the zone-area top.
+    bottom: page bottom is bottom_mm below the zone-area bottom (DI-Plot: bitmap at bottom centre, BMapShift Y).
+    ink_center / ink_top: the inked rows are centred / start at the top (PressPerCent "Center" / "Lead").
+    """
     top = p["top_mm"]
-    if p.get("vertical_anchor") == "ink_center":
+    if p.get("vertical_anchor") == "ink_top":
+        top = -p["ink_box_mm"][0] + p.get("top_mm", 0)
+    elif p.get("vertical_anchor") == "ink_center":
         # PressPerCent-style: the inked rows (ink_box_mm = [top, bottom] in page mm) are centred in the ink-zone area.
         ink_top, ink_bottom = p["ink_box_mm"]
         top = (p["area_height_mm"] - (ink_bottom - ink_top)) / 2 - ink_top + p.get("top_mm", 0)
@@ -126,23 +136,65 @@ def vertical_integral(a, y):
 
 
 def coverage(a, mm, p):
-    """Fractional pixels, blank outside PDF, denominator includes entire zone rectangle."""
+    """Fractional pixels, blank outside PDF, denominator includes entire zone rectangle.
+
+    calc_width_mm (PressPerCent "Calculation Width"): each zone is measured over a window of this
+    width centred on the zone; default = zone width.
+    """
     h, w = a.shape
     sx, sy = w / mm[0], h / mm[1]
     left, top = placement(mm, p)
     col = vertical_integral(a, (p["area_height_mm"] - top) * sy) - vertical_integral(a, -top * sy)
     cs = np.r_[0, np.cumsum(col)]
-    edges = (np.arange(p["zone_count"] + 1) * p["zone_width_mm"] - left) * sx
-    integral = np.interp(edges, np.arange(w + 1), cs, left=0, right=cs[-1])
-    values = np.clip(np.diff(integral) / (p["zone_width_mm"] * sx * p["area_height_mm"] * sy), 0, 1)
+    zw = p["zone_width_mm"]
+    calc = p.get("calc_width_mm") or zw
+    centres = (np.arange(p["zone_count"]) + 0.5) * zw
+    lo = np.interp((centres - calc / 2 - left) * sx, np.arange(w + 1), cs, left=0, right=cs[-1])
+    hi = np.interp((centres + calc / 2 - left) * sx, np.arange(w + 1), cs, left=0, right=cs[-1])
+    values = np.clip((hi - lo) / (calc * sx * p["area_height_mm"] * sy), 0, 1)
     if p["reverse_zones"]:
         values = values[::-1]
     return values
 
 
+def printable_area(a, mm, p):
+    """Ink in mm² inside the printable area (centred on the zone area) and its share of that area."""
+    h, w = a.shape
+    sx, sy = w / mm[0], h / mm[1]
+    left, top = placement(mm, p)
+    zone_w = p["zone_count"] * p["zone_width_mm"]
+    pw = p.get("printable_width_mm") or zone_w
+    ph = p["area_height_mm"]
+    x0, x1 = (zone_w - pw) / 2 - left, (zone_w + pw) / 2 - left
+    col = vertical_integral(a, (ph - top) * sy) - vertical_integral(a, -top * sy)
+    cs = np.r_[0, np.cumsum(col)]
+    ink = float(np.diff(np.interp([x0 * sx, x1 * sx], np.arange(w + 1), cs, left=0, right=cs[-1]))[0]) / (sx * sy)
+    return ink, ink / (pw * ph)
+
+
+def preview_png(image, mm, p):
+    """PNG for the press console (DI-Plot thumbnail): (image, resolution written to the XML).
+
+    preview_scope "zone" = ink-zone area (default), "bitmap" = the PDF page itself.
+    preview_max_px > 0 = DI-Plot "Max. Thumbnail-Size": the longer side gets this many pixels.
+    """
+    zone = p.get("preview_scope", "zone") != "bitmap"
+    width_mm = p["zone_count"] * p["zone_width_mm"] if zone else mm[0]
+    height_mm = p["area_height_mm"] if zone else mm[1]
+    dpi = p["preview_dpi"]
+    if p.get("preview_max_px"):
+        dpi = p["preview_max_px"] / (max(width_mm, height_mm) / 25.4)
+    if zone:
+        out = make_preview(image, mm, p, dpi)
+    else:
+        size = (max(1, round(width_mm * dpi / 25.4)), max(1, round(height_mm * dpi / 25.4)))
+        out = image.resize(size, Image.Resampling.LANCZOS)
+    return out, max(1, round(dpi))
+
+
 def make_preview(image, mm, p, dpi, resample=Image.Resampling.BICUBIC):
     width = p["zone_count"] * p["zone_width_mm"]
-    out_size = (round(width * dpi / 25.4), round(p["area_height_mm"] * dpi / 25.4))
+    out_size = (max(1, round(width * dpi / 25.4)), max(1, round(p["area_height_mm"] * dpi / 25.4)))
     if out_size[0] * out_size[1] > 120_000_000:
         raise ValueError("PNG je prevelik. Smanjite njegovu rezoluciju u profilu.")
     left, top = placement(mm, p)
@@ -221,7 +273,7 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
     reported = set(colors) - set(PROCESS)
     if not reported.issubset(planes):
         raise ValueError("Imena spot boja ne odgovaraju rasterima; potrebno je proveriti specijalne znakove u imenima boja.")
-    if p.get("vertical_anchor") == "ink_center":
+    if p.get("vertical_anchor") in ("ink_center", "ink_top"):
         rows = None
         for f in planes.values():
             with Image.open(f) as im:
@@ -233,6 +285,7 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
         first, last = int(np.argmax(rows)), rows.size - int(np.argmax(rows[::-1]))
         p = dict(p, ink_box_mm=[first * row_mm, last * row_mm])
     channels = []
+    ink_bbox = None
     for n, name in enumerate(sorted(planes, key=lambda x: (PROCESS.index(x) if x in PROCESS else 4, x))):
         progress("Obračun: " + name)
         with Image.open(planes[name]) as im:
@@ -242,6 +295,12 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
         values = coverage(a, mm, p)
         if not np.any(values > 0):
             continue
+        ink_mm2, ink_share = printable_area(a, mm, p)
+        inked = a > 0.002
+        if inked.any():
+            r = np.flatnonzero(inked.any(axis=1)); c = np.flatnonzero(inked.any(axis=0))
+            box = [c[0] * mm[0] / a.shape[1], r[0] * mm[1] / a.shape[0], (c[-1] + 1) * mm[0] / a.shape[1], (r[-1] + 1) * mm[1] / a.shape[0]]
+            ink_bbox = box if ink_bbox is None else [min(ink_bbox[0], box[0]), min(ink_bbox[1], box[1]), max(ink_bbox[2], box[2]), max(ink_bbox[3], box[3])]
         rgb = colors.get(name, [0.5, 0.5, 0.5])
         # Small separation preview is for viewing; computation above uses full 150 dpi plane.
         # One gray raster (255 = no ink) for the small thumbnail, the plate view and the PPF plane.
@@ -249,7 +308,8 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
         thumb = make_preview(preview, mm, p, 25)
         thumb_name = f"{stem}.sep-{n + 1}.png"
         thumb.save(target / thumb_name)
-        channel = {"name": name, "values": values.tolist(), "mean": float(values.mean()), "max": float(values.max()), "rgb": rgb, "thumbnail": thumb_name}
+        channel = {"name": name, "values": values.tolist(), "mean": float(values.mean()), "max": float(values.max()), "rgb": rgb, "thumbnail": thumb_name,
+                   "ink_mm2": ink_mm2, "area_coverage": ink_share}
         # Plate view for the program's separation viewer: same zone-area geometry as the composite.
         view = make_preview(preview, mm, p, view_dpi(p), Image.Resampling.BILINEAR)
         channel["view"] = f"{stem}.view-{n + 1}.jpg"
@@ -276,19 +336,21 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
     composite_view = make_preview(rgb_image, mm, p, view_dpi(p), Image.Resampling.BILINEAR)
     composite_view.save(target / (stem + ".view.jpg"), quality=90)
     del composite_view
-    preview = make_preview(rgb_image, mm, p, p["preview_dpi"])
+    preview, png_dpi = preview_png(rgb_image, mm, p)
     png = stem + ".PNG"
-    preview.save(target / png, dpi=(p["preview_dpi"], p["preview_dpi"]))
+    preview.save(target / png, dpi=(png_dpi, png_dpi))
     size = list(preview.size)
+    if p.get("preview_scope", "zone") == "bitmap" or p.get("preview_max_px"):
+        preview = make_preview(rgb_image, mm, p, 50)   # the program's own small zone-area picture
     preview.thumbnail((1600, 1200), Image.Resampling.LANCZOS)
     thumbnail = stem + ".thumb.png"
     preview.save(target / thumbnail)
-    page = {"stem": stem, "source_mm": list(source_mm), "oriented_mm": list(mm), "channels": channels, "warnings": warnings, "png": png, "preview_size": size, "thumbnail": thumbnail}
+    page = {"stem": stem, "source_mm": list(source_mm), "oriented_mm": list(mm), "channels": channels, "warnings": warnings, "png": png, "preview_size": size, "thumbnail": thumbnail,
+            "preview_resolution": png_dpi, "ink_bbox_mm": ink_bbox, "placement_mm": list(placement(mm, p))}
     page["view_dpi"] = view_dpi(p)
     page["view"] = stem + ".view.jpg"
     if "ink_box_mm" in p:
         page["ink_box_mm"] = p["ink_box_mm"]
-        page["placement_mm"] = list(placement(mm, p))
     if p.get("ppf_enabled"):
         page["ppf_dpi"] = p.get("ppf_dpi", 50.8)
         page["ppf_size"] = list(ppf_size(p, page["ppf_dpi"]))
