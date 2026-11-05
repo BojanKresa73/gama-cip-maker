@@ -128,5 +128,34 @@ class FactoryProfiles(unittest.TestCase):
             self.assertEqual(again.seed_report["added"], [])
 
 
+@unittest.skipUnless(has_gs(), "Ghostscript required")
+class PdfBox(unittest.TestCase):
+    def test_trimbox_and_fallback(self):
+        k = 72 / 25.4
+        with tempfile.TemporaryDirectory(prefix="okvir-Š-") as td:
+            root = Path(td)
+            doc = fitz.open()
+            page = doc.new_page(width=800 * k, height=650 * k)
+            page.set_trimbox(fitz.Rect(27.5 * k, 22.5 * k, 772.5 * k, 627.5 * k))
+            page.draw_rect(fitz.Rect(0, 0, 800 * k, 650 * k), color=None, fill=(0, 0, 0, 1))
+            doc.save(root / "trim.pdf")
+            plain = fitz.open()
+            plain.new_page(width=745 * k, height=605 * k).draw_rect(fitz.Rect(0, 0, 100, 100), color=None, fill=(0, 0, 0))
+            plain.save(root / "plain.pdf")
+            p = engine_settings(seed("eurodream-745x605"))
+            # MediaBox: 800 x 650 is not the 745 x 605 plate
+            with self.assertRaises(ValueError):
+                process_pdf(root / "trim.pdf", dict(p, pdf_box="MediaBox"), root / "m")
+            page = process_pdf(root / "trim.pdf", dict(p, pdf_box="TrimBox"), root / "t")["pages"][0]
+            self.assertEqual([round(v, 1) for v in page["source_mm"]], [745.0, 605.0])
+            self.assertEqual(page["pdf_box"], "TrimBox")
+            black = next(c for c in page["channels"] if c["name"] == "Black")
+            self.assertGreater(min(black["values"][1:-1]), 0.99)   # trimmed page fills the zones
+            self.assertLess(black["values"][0], 0.97)               # 745 mm page in 747,5 mm of zones: edge zone not full
+            page = process_pdf(root / "plain.pdf", dict(p, pdf_box="TrimBox"), root / "p")["pages"][0]
+            self.assertEqual(page["pdf_box"], "MediaBox")
+            self.assertIn("nema TrimBox", " ".join(page["warnings"]))
+
+
 if __name__ == "__main__":
     unittest.main()

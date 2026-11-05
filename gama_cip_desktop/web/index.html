@@ -750,6 +750,8 @@ const FIELDS = [
   ["Osnovno",[{k:"name",label:"Naziv profila",type:"text",wide:true},{k:"printshop",label:"Štamparija",type:"text"},{k:"machine",label:"Mašina",type:"text"}]],
   ["Ploča i zone boje",[NUM("plate_width_mm","Širina ploče (mm)"),NUM("plate_height_mm","Visina ploče (mm)"),NUM("zone_count","Broj zona","",1),NUM("zone_width_mm","Širina zone (mm)"),NUM("area_height_mm","Visina zone boje (mm)"),
     NUM("shift_x_mm","Pomak X (mm)","+ desno od centra"),NUM("top_mm","Gornji ofset (mm)","+ naniže u zoni boje"),
+    {k:"pdf_box",label:"Okvir PDF-a",type:"sel",opts:[["MediaBox","MediaBox (cela strana PDF-a)"],["TrimBox","TrimBox (format posle sečenja)"],["CropBox","CropBox"]],
+      hint:"Koji okvir PDF-a se smatra stranom: njegova veličina se poredi sa pločom i on se postavlja u zone. Ako PDF nema TrimBox, koristi se MediaBox i prikaže se upozorenje."},
     {k:"input_mode",label:"Ulazni PDF",type:"sel",opts:[["plate","PDF je ploča (tačan format)"],["sheet","PDF je tabak (manji ili jednak)"],["any","Bilo koji format (kao DI-Plot / PressPerCent)"]]},
     {k:"vertical_anchor",label:"Vertikalno poravnanje",type:"sel",opts:[["top","Od vrha zone boje"],["bottom","Od dna zone boje (DI-Plot)"],["ink_center","Centrirana oblast sa bojom (PressPerCent „Center“)"],["ink_top","Oblast sa bojom od vrha (PressPerCent „Lead“)"]]},
     NUM("bottom_mm","Donji ofset (mm)","za poravnanje od dna: DI-Plot BMapShift Y (+ = PDF niže)"),
@@ -782,7 +784,7 @@ const FIELDS = [
   ["Hot folder",[{k:"hot_folder",label:"Hot folder za ovaj profil",type:"chk",def:true},{k:"hot_folder_name",label:"Ime foldera",type:"text",hint:"Prazno = ime štamparije."},
     {k:"hot_copy_to",label:"Kopiraj izlaz i u folder",type:"text",wide:true,hint:"Nije obavezno. Npr. folder iz kog konzola mašine čita PPF/XML (\\\\server\\CIP ili Z:\\CIP). PressPerCent kod Eurodream-a izvozi na dva mesta: „Exported“ i „CIP“. Ako kopiranje ne uspe, dobićete obaveštenje."}]],
   ["Status",[{k:"active",label:"Aktivan (može se koristiti za obradu)",type:"chk"},{k:"export_enabled",label:"Izvoz dozvoljen",type:"chk",hint:"Dozvoljava pravljenje XML/PPF fajla za mašinu."}]],
-  ["Orijentacija",[{k:"rotation",label:"Rotacija",type:"sel",num:true,opts:[[0,"0°"],[90,"90°"],[180,"180°"],[270,"270°"]]},{k:"pdf_box",label:"PDF okvir",type:"sel",opts:[["MediaBox","MediaBox"],["CropBox","CropBox"]]},
+  ["Orijentacija",[{k:"rotation",label:"Rotacija",type:"sel",num:true,opts:[[0,"0°"],[90,"90°"],[180,"180°"],[270,"270°"]]},
     {k:"mirror_x",label:"Ogledalo levo-desno",type:"chk"},{k:"mirror_y",label:"Ogledalo gore-dole",type:"chk"},{k:"reverse_zones",label:"Obrnut redosled zona",type:"chk"}],"adv"],
   ["Rezolucija obrade",[{k:"render_dpi",label:"Radna rezolucija",type:"sel",num:true,opts:[[300,"300 dpi"],[600,"600 dpi (preporučeno)"],[1200,"1200 dpi"]]},
     {k:"preview_dpi",label:"PNG pregled za konzolu",type:"sel",num:true,opts:[[25,"25 dpi"],[50,"50 dpi"],[72,"72 dpi"],[75,"75 dpi"],[150,"150 dpi"]],show:isXml},
@@ -986,6 +988,7 @@ const HELP = [
 
 ["profiles", "Profili mašina", `
 <p>Profil opisuje jednu mašinu: format ploče, broj i širinu zona, položaj zona i koji izlaz mašina čita.</p>
+<p><b>Okvir PDF-a</b> (odeljak „Ploča i zone boje“) bira šta se smatra stranom PDF-a: <b>MediaBox</b> (cela strana, podrazumevano) ili <b>TrimBox</b> (format posle sečenja). Sve van izabranog okvira se ne računa.</p>
 <ul>
 <li><span class="chip ok">Spreman</span> — profil je potpun i može da se koristi. <span class="chip bad">Nepotpun</span> — nedostaju podaci (spisak piše na vrhu profila); takav profil nema hot folder.</li>
 <li><span class="chip info">Upoređen sa uzorcima</span> — rezultat je upoređen sa fajlovima koje je štamparija ranije dobijala. <span class="chip ok">Proveren na mašini</span> — potvrđeno na konzoli. <span class="chip warn">Neproveren</span> — svaka izmena geometrije ili izlaza vraća profil u ovo stanje.</li>

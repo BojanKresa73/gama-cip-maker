@@ -68,10 +68,12 @@ def inspect_pdf(path, profile):
             unit = doc.xref_get_key(page.xref, "UserUnit")
             if unit[0] not in ("null",) and float(unit[1]) != 1:
                 raise ValueError("PDF sa nestandardnim UserUnit nije podržan u ovoj verziji.")
-            if profile["pdf_box"] == "MediaBox":
-                box = page.mediabox
-            else:
-                box = page.cropbox
+            used, note = profile["pdf_box"], None
+            if used in ("TrimBox", "CropBox") and doc.xref_get_key(page.xref, used)[0] == "null" and \
+                    not (used == "CropBox" and _inherited(doc, page, "CropBox")):
+                note = f"Strana {page.number + 1}: PDF nema {used}; korišćen je MediaBox."
+                used = "MediaBox"
+            box = {"MediaBox": page.mediabox, "CropBox": page.cropbox, "TrimBox": page.trimbox}[used]
             w, h = box.width * 25.4 / 72, box.height * 25.4 / 72
             if page.rotation in (90, 270):
                 w, h = h, w
@@ -83,8 +85,22 @@ def inspect_pdf(path, profile):
                 mismatch = False
             if mismatch:
                 raise ValueError(f"Strana {page.number + 1}: format nakon rotacije je {transformed[0]:.2f} × {transformed[1]:.2f} mm, a profil očekuje {profile['plate_width_mm']} × {profile['plate_height_mm']} mm. Izaberite ili podesite odgovarajući profil.")
-            pages.append({"page": page.number + 1, "source_mm": [w, h], "oriented_mm": list(transformed), "pdf_rotation": page.rotation})
+            pages.append({"page": page.number + 1, "source_mm": [w, h], "oriented_mm": list(transformed), "pdf_rotation": page.rotation,
+                          "pdf_box": used, "box_note": note})
     return pages
+
+
+def _inherited(doc, page, key):
+    """CropBox may be inherited from a parent Pages node."""
+    xref = page.xref
+    for _ in range(32):
+        kind, value = doc.xref_get_key(xref, "Parent")
+        if kind != "xref":
+            return False
+        xref = int(value.split()[0])
+        if doc.xref_get_key(xref, key)[0] != "null":
+            return True
+    return False
 
 
 def orient_array(a, p):
@@ -269,6 +285,11 @@ def analyze_rasters(folder, source_mm, p, target, stem, progress=lambda s: None,
             composites.append(f)
     if not planes or len(composites) != 1:
         raise ValueError("Rasterizer nije proizveo očekivane separacije i kompozit.")
+    with Image.open(next(iter(planes.values()))) as im:
+        expect = (source_mm[0] * 150 / 25.4, source_mm[1] * 150 / 25.4)
+        if abs(im.width - expect[0]) > 3 or abs(im.height - expect[1]) > 3:
+            raise ValueError(f"Rasterizer je iscrtao {im.width * 25.4 / 150:.1f} × {im.height * 25.4 / 150:.1f} mm, a izabrani okvir PDF-a "
+                             f"({p.get('pdf_box', 'MediaBox')}) je {source_mm[0]:.1f} × {source_mm[1]:.1f} mm. Proverite PDF okvir u profilu.")
     # Never silently rename a spot color due to an OS-escaped output filename.
     reported = set(colors) - set(PROCESS)
     if not reported.issubset(planes):
@@ -372,8 +393,10 @@ def process_pdf(pdf, profile, target, progress=lambda s: None):
         progress(f"Rasterizovanje strane {number}/{len(pages)}: {p['render_dpi']} → 150 dpi")
         with tempfile.TemporaryDirectory(prefix="gama-raster-") as work:
             args = [gs, "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=tiffsep", f"-r{p['render_dpi']}", f"-dDownScaleFactor={p['render_dpi'] // 150}", "-dOverprint=/enable", "-dPrintSpotCMYK=true", "-dAutoRotatePages=/None", f"-dFirstPage={number}", f"-dLastPage={number}", "-sOutputFile=" + gs_path(work) + os.sep + "page-%d.tif"]
-            if p["pdf_box"] == "CropBox":
+            if page["pdf_box"] == "CropBox":
                 args += ["-dUseCropBox"]
+            elif page["pdf_box"] == "TrimBox":
+                args += ["-dUseTrimBox"]
             args.append(gs_path(Path(pdf).resolve()))
             run = subprocess.run(args, capture_output=True, encoding="utf-8", errors="replace", timeout=900, **NO_WINDOW)
             log = run.stdout + "\n" + run.stderr
@@ -383,7 +406,9 @@ def process_pdf(pdf, profile, target, progress=lambda s: None):
             if re.search(r"too many|maximum.*spot|mapped to CMYK|spot.*limit", log, re.I):
                 raise ValueError("Rasterizer prijavljuje ograničenje spot separacija. Izvoz je zaustavljen.")
             analyzed = analyze_rasters(work, page["source_mm"], p, output, f"page-{number:04d}", progress, log)
-            analyzed.update({"page": number, "pdf_rotation": page["pdf_rotation"]})
+            analyzed.update({"page": number, "pdf_rotation": page["pdf_rotation"], "pdf_box": page["pdf_box"]})
+            if page.get("box_note"):
+                analyzed["warnings"].append(page["box_note"])
             if "warning" in log.lower():
                 analyzed["warnings"].append("Rasterizer je izdao upozorenje; pogledajte render.log u izvoznom paketu.")
             result["pages"].append(analyzed)

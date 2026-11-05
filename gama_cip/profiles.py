@@ -54,8 +54,8 @@ def validate(p):
             raise ValueError(f"Neispravna dimenzija: {key}")
     if p["input_mode"] not in ("plate", "sheet", "any") or p["vertical_anchor"] not in ("top", "bottom", "ink_center", "ink_top"):
         raise ValueError("Neispravan režim ulaznog formata ili vertikalnog poravnanja.")
-    if p.get("pdf_box") not in ("MediaBox", "CropBox"):
-        raise ValueError("PDF okvir mora biti MediaBox ili CropBox.")
+    if p.get("pdf_box") not in ("MediaBox", "CropBox", "TrimBox"):
+        raise ValueError("PDF okvir mora biti MediaBox, TrimBox ili CropBox.")
     if p.get("side") not in ("Front", "Back"):
         raise ValueError("Neispravna strana tabaka.")
     for key in ("job_id", "signature", "sheet", "preview_url_prefix", "notes"):
