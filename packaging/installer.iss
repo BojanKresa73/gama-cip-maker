@@ -46,9 +46,9 @@ Name: "{autodesktop}\Gama CIP Maker"; Filename: "{app}\GamaCIPMaker.exe"; Tasks:
 Name: "{userstartup}\Gama CIP Maker"; Filename: "{app}\GamaCIPMaker.exe"; Parameters: "--minimized"; Tasks: autostart
 
 [Run]
-Filename: "{app}\GamaCIPMaker.exe"; Description: "Pokreni Gama CIP Maker"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\GamaCIPMaker.exe"; Description: "Pokreni Gama CIP Maker"; Flags: nowait postinstall skipifsilent runasoriginaluser
 ; Automatic update (silent install): start the program again. /norelaunch=1 is used only by tests.
-Filename: "{app}\GamaCIPMaker.exe"; Parameters: "--after-update"; Flags: nowait; Check: ShouldRelaunch
+Filename: "{app}\GamaCIPMaker.exe"; Parameters: "--after-update"; Flags: nowait runasoriginaluser; Check: ShouldRelaunch
 
 [Code]
 function ShouldRelaunch: Boolean;

@@ -60,6 +60,43 @@ def ssl_contexts():
     return out
 
 
+def short_path(path):
+    """8.3 short form of a Windows path (pure ASCII, safe for cmd.exe); the path itself elsewhere."""
+    text = str(path)
+    if os.name != "nt" or text.isascii():
+        return text
+    try:
+        import ctypes
+        size = ctypes.windll.kernel32.GetShortPathNameW(text, None, 0)
+        if size:
+            buffer = ctypes.create_unicode_buffer(size)
+            if ctypes.windll.kernel32.GetShortPathNameW(text, buffer, size):
+                return buffer.value
+    except Exception:  # noqa: BLE001
+        pass
+    return text
+
+
+def writable(folder):
+    try:
+        probe = Path(folder) / f".gama-proba-{os.getpid()}.tmp"
+        probe.write_bytes(b"ok")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def program_dir():
+    return Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else None
+
+
+def needs_admin():
+    """Installed for all users (Program Files): updating needs administrator rights, so never in the background."""
+    folder = program_dir()
+    return folder is not None and not writable(folder)
+
+
 class Updater:
     def __init__(self, app, current, quit_program=None):
         self.app = app
@@ -233,6 +270,42 @@ class Updater:
                         return True
         return False
 
+    def write_batch(self, installer, pid, exe_dir=None, admin=False):
+        """updates\\instaliraj.cmd: wait until this program (pid) has exited, run the installer silently, log every step
+        to updates\\launcher.log. Plain cmd.exe (no PowerShell, which some antivirus programs block when started by
+        another program). Paths are 8.3 short names where possible; the file is UTF-8 with code page 65001."""
+        folder = Path(installer).parent
+        trace = folder / "launcher.log"
+        trace.touch(exist_ok=True)
+        log = Path(installer).with_suffix(".log")
+        q = lambda p: '"' + short_path(p) + '"'
+        args = f"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /LOG={q(log)}"
+        args += " /ALLUSERS" if admin else " /CURRENTUSER"
+        if exe_dir:
+            args += f" /DIR={q(exe_dir)}"
+        pid = int(pid)
+        lines = [
+            "@echo off", "chcp 65001 >nul", "setlocal",
+            f"set LOG={q(trace)}",
+            f"echo %date% %time% pokrenut (cmd), cekam da se program {pid} zatvori>>%LOG%",
+            "set /a n=0",
+            ":cekaj",
+            f'"%SystemRoot%\\System32\\tasklist.exe" /FI "PID eq {pid}" /NH 2>nul | "%SystemRoot%\\System32\\find.exe" " {pid} " >nul',
+            "if errorlevel 1 goto kreni",
+            "set /a n+=1",
+            "if %n% GEQ 120 goto kreni",
+            '"%SystemRoot%\\System32\\ping.exe" -n 2 127.0.0.1 >nul',
+            "goto cekaj",
+            ":kreni",
+            '"%SystemRoot%\\System32\\ping.exe" -n 2 127.0.0.1 >nul',
+            f"echo %date% %time% instaler pokrenut: {args}>>%LOG%",
+            f'start "" /wait {q(installer)} {args}',
+            "echo %date% %time% instaler zavrsio, kod %errorlevel%>>%LOG%",
+        ]
+        batch = folder / "instaliraj.cmd"
+        batch.write_bytes(("\r\n".join(lines) + "\r\n").encode("utf-8"))
+        return short_path(batch)
+
     def launcher_script(self, installer, pid):
         """PowerShell (UTF-16 encoded command, so Serbian letters in paths are safe):
         wait until this program has exited, then run the installer silently.
@@ -266,19 +339,39 @@ class Updater:
             raise ValueError("Obrada je u toku. Instalacija će krenuti kad se poslovi završe.")
         if sys.platform != "win32":
             raise ValueError("Automatska instalacija radi samo na Windows-u.")
-        import base64
-        script = self.launcher_script(path, os.getpid())
-        encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
-        powershell = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
-        # CREATE_NO_WINDOW gives PowerShell a hidden console. (DETACHED_PROCESS = no console at all,
-        # which made PowerShell quit before running anything.)
-        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-        child = subprocess.Popen([str(powershell) if powershell.exists() else "powershell.exe", "-NoProfile", "-NonInteractive",
-                                  "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
-                                 creationflags=flags, close_fds=True,
-                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        exe_dir = program_dir()
+        admin = needs_admin()
+        child = None
+        try:
+            batch = self.write_batch(path, os.getpid(), exe_dir, admin)
+            if admin:
+                # Installed "for all users" (Program Files): the update needs administrator rights -> Windows asks (UAC).
+                import ctypes
+                done = ctypes.windll.shell32.ShellExecuteW(None, "runas", os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "cmd.exe"),
+                                                           f'/c "{batch}"', None, 0)
+                if done <= 32:
+                    raise ValueError("Instalacija zahteva administratorsku dozvolu, a ona nije data.")
+                LOG.info("Pokrenuta instalacija za sve korisnike (cmd kao administrator)")
+            else:
+                flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                child = subprocess.Popen([os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "cmd.exe"), "/c", batch],
+                                         creationflags=flags, close_fds=True,
+                                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except ValueError:
+            raise
+        except Exception:  # noqa: BLE001 - fall back to the PowerShell launcher of earlier versions
+            LOG.exception("cmd pokretač nije pokrenut; pokušavam PowerShell")
+            import base64
+            script = self.launcher_script(path, os.getpid())
+            encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+            powershell = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            child = subprocess.Popen([str(powershell) if powershell.exists() else "powershell.exe", "-NoProfile", "-NonInteractive",
+                                      "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded],
+                                     creationflags=flags, close_fds=True,
+                                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self._set(status="installing")
-        LOG.info("Pokrenuta instalacija verzije %s (PowerShell pid %s); program se zatvara", info.get("version"), child.pid)
+        LOG.info("Pokrenuta instalacija verzije %s (pokretač pid %s); program se zatvara", info.get("version"), child.pid if child else "-")
         if self.quit_program:
             threading.Timer(0.5, self.quit_program).start()
         return f"Instaliram verziju {info.get('version')}. Program će se ponovo otvoriti za oko pola minuta."
@@ -297,7 +390,7 @@ class Updater:
                 if self.check():
                     self.download()
             st = self.status()
-            if st["status"] == "ready" and st["auto_install"] and not self.window_visible() and not self.busy():
+            if st["status"] == "ready" and st["auto_install"] and not self.window_visible() and not self.busy() and not needs_admin():
                 try:
                     self.install()
                     return

@@ -136,6 +136,22 @@ class Updates(unittest.TestCase):
         encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
         self.assertEqual(base64.b64decode(encoded).decode("utf-16-le"), script)
 
+    def test_batch_launcher(self):
+        """cmd launcher (no PowerShell): waits for the program, installs silently into the same folder, logs each step."""
+        app = self.app()
+        with tempfile.TemporaryDirectory(prefix="upd-Đorđe-") as td:
+            setup = Path(td) / "GamaCIPMaker-Setup-9.9.9.exe"
+            setup.write_bytes(b"x")
+            batch = Path(app.updater.write_batch(setup, 4321, Path(r"C:\Program Files\Gama CIP Maker"), True))
+            text = batch.read_text(encoding="utf-8")
+            self.assertIn('/FI "PID eq 4321"', text)
+            self.assertIn("/VERYSILENT", text)
+            self.assertIn("/ALLUSERS", text)
+            self.assertIn('/DIR="C:\\Program Files\\Gama CIP Maker"', text)
+            self.assertIn("launcher.log", text)
+            self.assertNotIn("powershell", text.lower())
+            self.assertIn("/CURRENTUSER", Path(app.updater.write_batch(setup, 1, None, False)).read_text(encoding="utf-8"))
+
     def test_remembers_previous_version(self):
         app = self.app()
         app.updater.settings["last_version"] = "1.0.0"
