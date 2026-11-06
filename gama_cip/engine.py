@@ -69,12 +69,16 @@ def inspect_pdf(path, profile):
             if unit[0] not in ("null",) and float(unit[1]) != 1:
                 raise ValueError("PDF sa nestandardnim UserUnit nije podržan u ovoj verziji.")
             used, note = profile["pdf_box"], None
-            if used in ("TrimBox", "CropBox") and doc.xref_get_key(page.xref, used)[0] == "null" and \
-                    not (used == "CropBox" and _inherited(doc, page, "CropBox")):
+            media = _box(doc, page.xref, "MediaBox", inherit=True)
+            if media is None:
+                raise ValueError(f"Strana {page.number + 1}: PDF nema MediaBox.")
+            frame = media if used == "MediaBox" else _box(doc, page.xref, used, inherit=used == "CropBox")
+            if frame is None:
                 note = f"Strana {page.number + 1}: PDF nema {used}; korišćen je MediaBox."
-                used = "MediaBox"
-            box = {"MediaBox": page.mediabox, "CropBox": page.cropbox, "TrimBox": page.trimbox}[used]
-            w, h = box.width * 25.4 / 72, box.height * 25.4 / 72
+                used, frame = "MediaBox", media
+            # The chosen box is the page frame, even where it reaches outside the MediaBox (Ghostscript would
+            # clip it to the MediaBox); the MediaBox is rendered and placed into that frame.
+            w, h = (frame[2] - frame[0]) * 25.4 / 72, (frame[3] - frame[1]) * 25.4 / 72
             if page.rotation in (90, 270):
                 w, h = h, w
             transformed = (h, w) if profile["rotation"] in (90, 270) else (w, h)
@@ -86,21 +90,54 @@ def inspect_pdf(path, profile):
             if mismatch:
                 raise ValueError(f"Strana {page.number + 1}: format nakon rotacije je {transformed[0]:.2f} × {transformed[1]:.2f} mm, a profil očekuje {profile['plate_width_mm']} × {profile['plate_height_mm']} mm. Izaberite ili podesite odgovarajući profil.")
             pages.append({"page": page.number + 1, "source_mm": [w, h], "oriented_mm": list(transformed), "pdf_rotation": page.rotation,
-                          "pdf_box": used, "box_note": note})
+                          "pdf_box": used, "box_note": note, "media_pt": media, "frame_pt": frame})
     return pages
 
 
-def _inherited(doc, page, key):
-    """CropBox may be inherited from a parent Pages node."""
-    xref = page.xref
+def _box(doc, xref, key, inherit=False):
+    """[x0, y0, x1, y1] of a page box in PDF points (normalised), or None if the page does not have it."""
     for _ in range(32):
+        kind, value = doc.xref_get_key(xref, key)
+        if kind == "xref":
+            value = doc.xref_object(int(value.split()[0]), compressed=True)
+            kind = "array"
+        if kind == "array":
+            nums = [float(v) for v in re.findall(r"[-+]?(?:\d+\.?\d*|\.\d+)", value)]
+            if len(nums) == 4 and nums[0] != nums[2] and nums[1] != nums[3]:
+                return [min(nums[0], nums[2]), min(nums[1], nums[3]), max(nums[0], nums[2]), max(nums[1], nums[3])]
+            return None
+        if not inherit:
+            return None
         kind, value = doc.xref_get_key(xref, "Parent")
         if kind != "xref":
-            return False
+            return None
         xref = int(value.split()[0])
-        if doc.xref_get_key(xref, key)[0] != "null":
-            return True
-    return False
+    return None
+
+
+def reframe(folder, page, dpi=150):
+    """Put the rendered MediaBox rasters into the chosen page frame (TrimBox / CropBox).
+
+    The frame may be smaller (crop) or larger (empty margin) than the MediaBox, or both on different sides.
+    Rasters are rendered with the page's /Rotate applied, so the frame is placed in unrotated space.
+    """
+    media, frame = page["media_pt"], page["frame_pt"]
+    if all(abs(a - b) < 0.01 for a, b in zip(media, frame)):
+        return
+    px = dpi / 72
+    rot = page.get("pdf_rotation", 0) % 360
+    size = (round((frame[2] - frame[0]) * px), round((frame[3] - frame[1]) * px))
+    offset = (round((media[0] - frame[0]) * px), round((frame[3] - media[3]) * px))
+    for f in Path(folder).glob("*.tif"):
+        with Image.open(f) as im:
+            im.load()
+            plain = im.rotate(rot, expand=True) if rot else im     # undo /Rotate (PIL turns counter-clockwise)
+            blank = {"L": 255, "1": 1, "CMYK": (0, 0, 0, 0), "RGB": (255, 255, 255)}.get(plain.mode, 0)
+            canvas = Image.new(plain.mode, size, blank)
+            canvas.paste(plain, offset)
+            if rot:
+                canvas = canvas.rotate(-rot, expand=True)
+            canvas.save(f, compression="tiff_lzw" if plain.mode != "1" else None)
 
 
 def orient_array(a, p):
@@ -393,10 +430,6 @@ def process_pdf(pdf, profile, target, progress=lambda s: None):
         progress(f"Rasterizovanje strane {number}/{len(pages)}: {p['render_dpi']} → 150 dpi")
         with tempfile.TemporaryDirectory(prefix="gama-raster-") as work:
             args = [gs, "-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=tiffsep", f"-r{p['render_dpi']}", f"-dDownScaleFactor={p['render_dpi'] // 150}", "-dOverprint=/enable", "-dPrintSpotCMYK=true", "-dAutoRotatePages=/None", f"-dFirstPage={number}", f"-dLastPage={number}", "-sOutputFile=" + gs_path(work) + os.sep + "page-%d.tif"]
-            if page["pdf_box"] == "CropBox":
-                args += ["-dUseCropBox"]
-            elif page["pdf_box"] == "TrimBox":
-                args += ["-dUseTrimBox"]
             args.append(gs_path(Path(pdf).resolve()))
             run = subprocess.run(args, capture_output=True, encoding="utf-8", errors="replace", timeout=900, **NO_WINDOW)
             log = run.stdout + "\n" + run.stderr
@@ -405,6 +438,7 @@ def process_pdf(pdf, profile, target, progress=lambda s: None):
                 raise ValueError("Ghostscript nije uspeo da obradi PDF. " + log[-1500:])
             if re.search(r"too many|maximum.*spot|mapped to CMYK|spot.*limit", log, re.I):
                 raise ValueError("Rasterizer prijavljuje ograničenje spot separacija. Izvoz je zaustavljen.")
+            reframe(work, page)
             analyzed = analyze_rasters(work, page["source_mm"], p, output, f"page-{number:04d}", progress, log)
             analyzed.update({"page": number, "pdf_rotation": page["pdf_rotation"], "pdf_box": page["pdf_box"]})
             if page.get("box_note"):

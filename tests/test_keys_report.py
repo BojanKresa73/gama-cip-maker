@@ -156,6 +156,28 @@ class PdfBox(unittest.TestCase):
             self.assertEqual(page["pdf_box"], "MediaBox")
             self.assertIn("nema TrimBox", " ".join(page["warnings"]))
 
+    def test_trimbox_larger_than_mediabox(self):
+        """Eurodream, Nov 2026: MediaBox = sheet 610 x 430, TrimBox = plate 745 x 605 around it.
+        Ghostscript clips the TrimBox to the MediaBox (610 x 430); the sheet must stay where the TrimBox puts it."""
+        k = 72 / 25.4
+        with tempfile.TemporaryDirectory(prefix="okvir-veci-") as td:
+            root = Path(td)
+            p = engine_settings(seed("eurodream-745x605"))
+            p.update(pdf_box="TrimBox", vertical_anchor="top", top_mm=0)
+            for rotate, bbox in ((0, [67.5, 87.5, 367.5, 517.5]), (90, [87.5, 67.5, 517.5, 367.5])):
+                doc = fitz.open()
+                doc.new_page(width=610 * k, height=430 * k).draw_rect(fitz.Rect(0, 0, 300 * k, 430 * k), color=None, fill=(0, 0, 0, 1))
+                doc.save(root / "a.pdf")
+                doc = fitz.open(root / "a.pdf")
+                doc.xref_set_key(doc[0].xref, "TrimBox", "[%f %f %f %f]" % (-67.5 * k, -87.5 * k, 677.5 * k, 517.5 * k))
+                if rotate:
+                    doc.xref_set_key(doc[0].xref, "Rotate", str(rotate))
+                doc.save(root / f"u{rotate}.pdf")
+                page = process_pdf(root / f"u{rotate}.pdf", dict(p, input_mode="any" if rotate else "plate"), root / f"o{rotate}")["pages"][0]
+                self.assertEqual(page["pdf_box"], "TrimBox")
+                for got, want in zip(page["ink_bbox_mm"], bbox):
+                    self.assertAlmostEqual(got, want, delta=0.5)
+
 
 if __name__ == "__main__":
     unittest.main()
