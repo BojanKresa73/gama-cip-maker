@@ -139,9 +139,11 @@ class PdfBox(unittest.TestCase):
             page.set_trimbox(fitz.Rect(27.5 * k, 22.5 * k, 772.5 * k, 627.5 * k))
             page.draw_rect(fitz.Rect(0, 0, 800 * k, 650 * k), color=None, fill=(0, 0, 0, 1))
             doc.save(root / "trim.pdf")
+            doc.close()
             plain = fitz.open()
             plain.new_page(width=745 * k, height=605 * k).draw_rect(fitz.Rect(0, 0, 100, 100), color=None, fill=(0, 0, 0))
             plain.save(root / "plain.pdf")
+            plain.close()
             p = engine_settings(seed("eurodream-745x605"))
             # MediaBox: 800 x 650 is not the 745 x 605 plate
             with self.assertRaises(ValueError):
@@ -167,12 +169,11 @@ class PdfBox(unittest.TestCase):
             for rotate, bbox in ((0, [67.5, 87.5, 367.5, 517.5]), (90, [87.5, 67.5, 517.5, 367.5])):
                 doc = fitz.open()
                 doc.new_page(width=610 * k, height=430 * k).draw_rect(fitz.Rect(0, 0, 300 * k, 430 * k), color=None, fill=(0, 0, 0, 1))
-                doc.save(root / "a.pdf")
-                doc = fitz.open(root / "a.pdf")
                 doc.xref_set_key(doc[0].xref, "TrimBox", "[%f %f %f %f]" % (-67.5 * k, -87.5 * k, 677.5 * k, 517.5 * k))
                 if rotate:
                     doc.xref_set_key(doc[0].xref, "Rotate", str(rotate))
                 doc.save(root / f"u{rotate}.pdf")
+                doc.close()
                 page = process_pdf(root / f"u{rotate}.pdf", dict(p, input_mode="any" if rotate else "plate"), root / f"o{rotate}")["pages"][0]
                 self.assertEqual(page["pdf_box"], "TrimBox")
                 for got, want in zip(page["ink_bbox_mm"], bbox):
